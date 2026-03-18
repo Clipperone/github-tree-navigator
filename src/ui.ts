@@ -84,6 +84,62 @@ export function buildTreeHierarchy(nodes: TreeNode[]): TreeItem[] {
   return root;
 }
 
+// ─── Filter Helpers ───────────────────────────────────────────────────────────
+
+/**
+ * Returns the subset of nodes required to display all blobs whose path
+ * contains `query` (case-insensitive substring match), together with every
+ * ancestor directory node needed to make those blobs reachable in the tree.
+ *
+ * @param nodes - Full flat node list from the GitHub Trees API
+ * @param query - Raw search string (may contain mixed case / leading spaces)
+ * @returns     - Filtered flat node list; empty array when nothing matches
+ */
+function filterNodes(nodes: TreeNode[], query: string): TreeNode[] {
+  const q = query.toLowerCase().trim();
+  if (!q) return nodes;
+
+  // Collect paths of blobs whose full path contains the query string
+  const matchedPaths = new Set<string>();
+  for (const node of nodes) {
+    if (node.type === 'blob' && node.path.toLowerCase().includes(q)) {
+      matchedPaths.add(node.path);
+    }
+  }
+
+  if (matchedPaths.size === 0) return [];
+
+  // Add all ancestor directory paths required to reach each matched blob
+  const neededPaths = new Set<string>(matchedPaths);
+  for (const path of matchedPaths) {
+    const parts = path.split('/');
+    for (let i = 1; i < parts.length; i++) {
+      neededPaths.add(parts.slice(0, i).join('/'));
+    }
+  }
+
+  return nodes.filter((n) => neededPaths.has(n.path));
+}
+
+/**
+ * Returns HTML markup for `text` with the first case-insensitive occurrence
+ * of `query` wrapped in `<mark class="gtn-highlight">`. Every text fragment
+ * is individually HTML-escaped, so no user-supplied content reaches innerHTML
+ * unescaped. Returns `escapeHtml(text)` verbatim when there is no match.
+ *
+ * @param text  - Display string (file name or directory name)
+ * @param query - Search term to highlight
+ * @returns     - HTML-safe string ready for `innerHTML` insertion
+ */
+function highlightMatch(text: string, query: string): string {
+  const idx = text.toLowerCase().indexOf(query.toLowerCase());
+  if (idx === -1) return escapeHtml(text);
+  const before = text.slice(0, idx);
+  const match  = text.slice(idx, idx + query.length);
+  const after  = text.slice(idx + query.length);
+  return `${escapeHtml(before)}<mark class="${PREFIX}-highlight">${escapeHtml(match)}</mark>${escapeHtml(after)}`;
+}
+
 // ─── Sidebar Shell ────────────────────────────────────────────────────────────
 
 /**
@@ -124,15 +180,20 @@ export function createToggleButton(onToggle: () => void): { wrapper: HTMLDivElem
 }
 
 /**
- * Creates the sidebar shell: a fixed `<aside>` containing a header and scrollable
- * content area. The sidebar starts hidden; call `setSidebarVisible` to show it.
+ * Creates the sidebar shell: a fixed `<aside>` containing a header, a search
+ * bar, and scrollable content area. The sidebar starts hidden; call
+ * `setSidebarVisible` to show it.
  *
- * @param onClose - Callback invoked when the header close button is clicked
- * @returns       - Object with the root `sidebar` element and mutable `content` container
+ * @param onClose  - Callback invoked when the header close button is clicked
+ * @param onPin    - Callback invoked when the pin button is clicked
+ * @param onSearch - Callback invoked on every keystroke in the search input
+ * @param repoInfo - Initial repository context for the header
+ * @returns        - Object with the root `sidebar` element and mutable `content` container
  */
 export function createSidebar(
   onClose: () => void,
   onPin: () => void,
+  onSearch: (query: string) => void,
   repoInfo: RepoInfo,
 ): {
   sidebar: HTMLElement;
@@ -188,11 +249,27 @@ export function createSidebar(
   const pinButton = header.querySelector<HTMLButtonElement>(`.${PREFIX}-pin-btn`)!;
   pinButton.addEventListener('click', onPin);
 
+  // ── Search bar ──
+  const searchBar = document.createElement('div');
+  searchBar.className = `${PREFIX}-search-bar`;
+
+  const searchInput = document.createElement('input');
+  searchInput.type = 'search';
+  searchInput.className = `${PREFIX}-search-input`;
+  searchInput.placeholder = 'Filter files\u2026';
+  searchInput.setAttribute('aria-label', 'Filter files in tree');
+  searchInput.setAttribute('autocomplete', 'off');
+  searchInput.setAttribute('spellcheck', 'false');
+  searchInput.addEventListener('input', () => { onSearch(searchInput.value); });
+
+  searchBar.appendChild(searchInput);
+
   // ── Scrollable content area ──
   const content = document.createElement('div');
   content.className = `${PREFIX}-content`;
 
   sidebar.appendChild(header);
+  sidebar.appendChild(searchBar);
   sidebar.appendChild(content);
 
   return { sidebar, content, pinButton };
@@ -238,10 +315,17 @@ export function renderError(container: HTMLElement, message: string): void {
  * Re-renders from scratch on every call; kept fast because the hierarchy build
  * is O(n) and the DOM diff is implicit (full replacement of the container).
  *
+ * When `filterQuery` is non-empty the visible set is narrowed to blobs whose
+ * path matches the query (case-insensitive substring), plus their ancestor
+ * directories. All ancestor directories are auto-expanded in filter mode so
+ * every match is immediately visible. Matched substrings are highlighted.
+ *
  * @param container    - The `.gtn-content` element to render into
  * @param nodes        - Flat TreeNode array from the GitHub Trees API
  * @param expandedPaths - Set of directory paths currently expanded by the user
  * @param repoInfo     - Repository context used to build file URLs
+ * @param activePath   - Repo-relative path of the currently viewed file, or null
+ * @param filterQuery  - Current search string; empty string disables filtering
  * @param onToggleDir  - Callback when a directory chevron is clicked  (path → void)
  * @param onFileClick  - Callback when a file row is clicked  (path, url → void)
  */
@@ -251,21 +335,37 @@ export function renderTree(
   expandedPaths: Set<string>,
   repoInfo: RepoInfo,
   activePath: string | null,
+  filterQuery: string,
   onToggleDir: (path: string) => void,
   onFileClick: (path: string, url: string) => void,
 ): void {
-  const hierarchy = buildTreeHierarchy(nodes);
+  const isFiltering = filterQuery.trim().length > 0;
+  const displayNodes = isFiltering ? filterNodes(nodes, filterQuery) : nodes;
+  const hierarchy = buildTreeHierarchy(displayNodes);
 
   if (hierarchy.length === 0) {
-    container.innerHTML = `<p class="${PREFIX}-empty">This repository appears to be empty.</p>`;
+    if (isFiltering) {
+      container.innerHTML = `<p class="${PREFIX}-search-empty">No files match <strong>${escapeHtml(filterQuery.trim())}</strong></p>`;
+    } else {
+      container.innerHTML = `<p class="${PREFIX}-empty">This repository appears to be empty.</p>`;
+    }
     return;
   }
+
+  // In filter mode every ancestor directory is auto-expanded so matches are visible.
+  const effectiveExpanded = isFiltering
+    ? new Set(displayNodes.filter((n) => n.type === 'tree').map((n) => n.path))
+    : expandedPaths;
 
   const ul = document.createElement('ul');
   ul.className = `${PREFIX}-tree`;
   ul.setAttribute('role', 'tree');
 
-  renderTreeItems(ul, hierarchy, expandedPaths, repoInfo, activePath, onToggleDir, onFileClick, 0);
+  renderTreeItems(
+    ul, hierarchy, effectiveExpanded, repoInfo, activePath,
+    isFiltering ? filterQuery.trim() : '',
+    onToggleDir, onFileClick, 0,
+  );
 
   container.replaceChildren(ul);
 }
@@ -281,6 +381,8 @@ export function renderTree(
  * @param items         - Hierarchical items to render at this level
  * @param expandedPaths - Set of expanded directory full paths
  * @param repoInfo      - Repository context for file URL generation
+ * @param activePath    - Repo-relative path of the currently viewed file, or null
+ * @param filterQuery   - Active search string for highlighting; empty to skip
  * @param onToggleDir   - Directory toggle callback
  * @param onFileClick   - File click callback
  * @param depth         - Current nesting depth (0 = root)
@@ -291,6 +393,7 @@ function renderTreeItems(
   expandedPaths: Set<string>,
   repoInfo: RepoInfo,
   activePath: string | null,
+  filterQuery: string,
   onToggleDir: (path: string) => void,
   onFileClick: (path: string, url: string) => void,
   depth: number,
@@ -322,7 +425,7 @@ function renderTreeItems(
         <svg class="${PREFIX}-icon-dir" width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
           <path d="M1.75 1A1.75 1.75 0 0 0 0 2.75v10.5C0 14.216.784 15 1.75 15h12.5A1.75 1.75 0 0 0 16 13.25v-8.5A1.75 1.75 0 0 0 14.25 3H7.5a.25.25 0 0 1-.2-.1l-.9-1.2C6.07 1.26 5.55 1 5 1H1.75Z"/>
         </svg>
-        <span class="${PREFIX}-item-name">${escapeHtml(item.name)}</span>
+        <span class="${PREFIX}-item-name">${filterQuery ? highlightMatch(item.name, filterQuery) : escapeHtml(item.name)}</span>
       `;
       btn.addEventListener('click', () => onToggleDir(item.fullPath));
       li.appendChild(btn);
@@ -333,7 +436,7 @@ function renderTreeItems(
         childUl.setAttribute('role', 'group');
         renderTreeItems(
           childUl, item.children, expandedPaths,
-          repoInfo, activePath, onToggleDir, onFileClick, depth + 1,
+          repoInfo, activePath, filterQuery, onToggleDir, onFileClick, depth + 1,
         );
         li.appendChild(childUl);
       }
@@ -354,7 +457,7 @@ function renderTreeItems(
         <svg class="${PREFIX}-icon-file" width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
           <path d="M2 1.75C2 .784 2.784 0 3.75 0h6.586c.464 0 .909.184 1.237.513l2.914 2.914c.329.328.513.773.513 1.237v9.586A1.75 1.75 0 0 1 13.25 16h-9.5A1.75 1.75 0 0 1 2 14.25Zm1.75-.25a.25.25 0 0 0-.25.25v12.5c0 .138.112.25.25.25h9.5a.25.25 0 0 0 .25-.25V6h-2.75A1.75 1.75 0 0 1 9 4.25V1.5Zm6.75.062V4.25c0 .138.112.25.25.25h2.688l-.011-.013-2.914-2.914-.013-.011Z"/>
         </svg>
-        <span class="${PREFIX}-item-name">${escapeHtml(item.name)}</span>
+        <span class="${PREFIX}-item-name">${filterQuery ? highlightMatch(item.name, filterQuery) : escapeHtml(item.name)}</span>
       `;
       // Let the browser/Turbo Drive navigate naturally; just record the active path
       anchor.addEventListener('click', () => { onFileClick(item.fullPath, fileUrl); });

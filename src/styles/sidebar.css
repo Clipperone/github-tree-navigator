@@ -302,6 +302,67 @@ body.gtn-body--sidebar-pinned {
   margin: 0;
 }
 
+/* ─── Search Bar ─────────────────────────────────────────────────────────── */
+
+.gtn-search-bar {
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--color-border-default, #d0d7de);
+  flex-shrink: 0;
+  background: var(--color-canvas-default, #ffffff);
+}
+
+.gtn-search-input {
+  width: 100%;
+  padding: 5px 8px;
+  border: 1px solid var(--color-border-default, #d0d7de);
+  border-radius: 6px;
+  background: var(--color-canvas-subtle, #f6f8fa);
+  color: var(--color-fg-default, #1f2328);
+  font-size: 12px;
+  font-family: inherit;
+  line-height: 1.4;
+  outline: none;
+  transition: border-color 120ms ease, box-shadow 120ms ease;
+}
+
+.gtn-search-input:focus {
+  border-color: var(--color-accent-fg, #0969da);
+  box-shadow: 0 0 0 3px var(--color-accent-subtle, rgba(9, 105, 218, 0.1));
+  background: var(--color-canvas-default, #ffffff);
+}
+
+.gtn-search-input::placeholder {
+  color: var(--color-fg-muted, #656d76);
+}
+
+/* ─── Search Empty State ─────────────────────────────────────────────────── */
+
+.gtn-search-empty {
+  padding: 16px 12px;
+  color: var(--color-fg-muted, #656d76);
+  font-size: 12px;
+  text-align: center;
+  margin: 0;
+}
+
+.gtn-search-empty strong {
+  color: var(--color-fg-default, #1f2328);
+  font-weight: 600;
+}
+
+/* ─── Match Highlight ───────────────────────────────────────────────────── */
+
+.gtn-highlight {
+  background: var(--color-attention-subtle, #fff8c5);
+  color: var(--color-attention-fg, #9a6700);
+  border-radius: 2px;
+  padding: 0 1px;
+  font: inherit;
+}
+  text-align: center;
+  margin: 0;
+}
+
 /* ─── Tree Lists ────────────────────────────────────────────────────────── */
 
 .gtn-tree,

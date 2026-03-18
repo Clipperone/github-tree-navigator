@@ -52,6 +52,8 @@ export interface AppState {
   error: string | null;
   /** Repo-relative path of the file currently viewed (from URL); null on non-blob pages */
   activePath: string | null;
+  /** Current search/filter query typed by the user; empty string means no filter */
+  filterQuery: string;
 }
 
 /** Subscriber callback invoked on every state change */
@@ -68,6 +70,7 @@ const initialState: Readonly<AppState> = {
   loading: false,
   error: null,
   activePath: null,
+  filterQuery: '',
 };
 
 let _state: AppState = { ...initialState, expandedPaths: new Set<string>() };
@@ -122,6 +125,7 @@ export function resetState(): void {
     loading: false,
     error: null,
     activePath: null,
+    filterQuery: '',
     // pinned, sidebarOpen, expandedPaths intentionally preserved across navigations
   });
 }

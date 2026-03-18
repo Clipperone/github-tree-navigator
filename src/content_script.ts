@@ -92,7 +92,7 @@ function mount(): void {
   unmount();
 
   const { wrapper: toggleWrapper, button: toggleBtn } = createToggleButton(handleToggle);
-  const { sidebar, content, pinButton } = createSidebar(handleClose, handlePin, repoInfo);
+  const { sidebar, content, pinButton } = createSidebar(handleClose, handlePin, handleSearch, repoInfo);
 
   document.body.appendChild(toggleWrapper);
   document.body.appendChild(sidebar);
@@ -152,6 +152,7 @@ function mount(): void {
         s.expandedPaths,
         s.repoInfo,
         s.activePath,
+        s.filterQuery,
         handleToggleDir,
         handleFileClick,
       );
@@ -190,6 +191,11 @@ async function handleToggle(): Promise<void> {
   if (opening && getState().treeNodes.length === 0) {
     await loadTree();
   }
+}
+
+/** Updates the filter query in state; the subscriber re-renders the tree. */
+function handleSearch(query: string): void {
+  setState({ filterQuery: query });
 }
 
 /** Closes the sidebar and removes pin. */
@@ -327,8 +333,10 @@ function handleNavigation(): void {
   setState({ repoInfo: newRepoInfo, activePath: newActivePath, loading: false, error: null });
 
   if (!sameRepo) {
-    // Different repository — clear stale tree and refetch
-    setState({ treeNodes: [] });
+    // Different repository — clear stale tree, reset filter, and refetch
+    setState({ treeNodes: [], filterQuery: '' });
+    const searchInput = document.querySelector<HTMLInputElement>(`#${SIDEBAR_ID} .${PREFIX}-search-input`);
+    if (searchInput) searchInput.value = '';
     if (getState().sidebarOpen) void loadTree();
   }
   // Same repo: treeNodes stays intact, subscriber re-renders with updated activePath only
