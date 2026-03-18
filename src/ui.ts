@@ -180,20 +180,26 @@ export function createToggleButton(onToggle: () => void): { wrapper: HTMLDivElem
 }
 
 /**
- * Creates the sidebar shell: a fixed `<aside>` containing a header, a search
- * bar, and scrollable content area. The sidebar starts hidden; call
- * `setSidebarVisible` to show it.
+ * Creates the sidebar shell: a fixed `<aside>` containing a header, a settings
+ * panel, a search bar, and scrollable content area. The sidebar starts hidden;
+ * call `setSidebarVisible` to show it.
  *
- * @param onClose  - Callback invoked when the header close button is clicked
- * @param onPin    - Callback invoked when the pin button is clicked
- * @param onSearch - Callback invoked on every keystroke in the search input
- * @param repoInfo - Initial repository context for the header
- * @returns        - Object with the root `sidebar` element and mutable `content` container
+ * @param onClose          - Callback invoked when the header close button is clicked
+ * @param onPin            - Callback invoked when the pin button is clicked
+ * @param onSearch         - Callback invoked on every keystroke in the search input
+ * @param onSettingsToggle - Callback invoked when the settings gear button is clicked
+ * @param onSaveToken      - Callback invoked when the user saves a PAT
+ * @param onRemoveToken    - Callback invoked when the user removes the stored PAT
+ * @param repoInfo         - Initial repository context for the header
+ * @returns                - Object with the root `sidebar` element and mutable `content` container
  */
 export function createSidebar(
   onClose: () => void,
   onPin: () => void,
   onSearch: (query: string) => void,
+  onSettingsToggle: () => void,
+  onSaveToken: (token: string) => void,
+  onRemoveToken: () => void,
   repoInfo: RepoInfo,
 ): {
   sidebar: HTMLElement;
@@ -227,6 +233,12 @@ export function createSidebar(
       </span>
     </div>
     <div class="${PREFIX}-header-actions">
+      <button class="${PREFIX}-settings-btn" aria-label="Token settings" title="Token settings" aria-pressed="false">
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+          <path d="M8 4.754a3.246 3.246 0 1 0 0 6.492 3.246 3.246 0 0 0 0-6.492M5.754 8a2.246 2.246 0 1 1 4.492 0 2.246 2.246 0 0 1-4.492 0"/>
+          <path d="M9.796 1.343c-.527-1.79-3.065-1.79-3.592 0l-.094.319a.873.873 0 0 1-1.255.52l-.292-.16c-1.64-.892-3.433.902-2.54 2.541l.159.292a.873.873 0 0 1-.52 1.255l-.319.094c-1.79.527-1.79 3.065 0 3.592l.319.094a.873.873 0 0 1 .52 1.255l-.16.292c-.892 1.64.901 3.434 2.541 2.54l.292-.159a.873.873 0 0 1 1.255.52l.094.319c.527 1.79 3.065 1.79 3.592 0l.094-.319a.873.873 0 0 1 1.255-.52l.292.16c1.64.893 3.434-.902 2.54-2.541l-.159-.292a.873.873 0 0 1 .52-1.255l.319-.094c1.79-.527 1.79-3.065 0-3.592l-.319-.094a.873.873 0 0 1-.52-1.255l.16-.292c.893-1.64-.902-3.433-2.541-2.54l-.292.159a.873.873 0 0 1-1.255-.52z"/>
+        </svg>
+      </button>
       <button class="${PREFIX}-pin-btn" aria-label="Keep sidebar open" title="Keep sidebar open" aria-pressed="false">
         <!-- Unpinned: diagonal thumbtack (bi-pin-angle) — suggests “click to pin” -->
         <svg class="${PREFIX}-pin-off" width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
@@ -248,6 +260,45 @@ export function createSidebar(
     .addEventListener('click', onClose);
   const pinButton = header.querySelector<HTMLButtonElement>(`.${PREFIX}-pin-btn`)!;
   pinButton.addEventListener('click', onPin);
+  const settingsButton = header.querySelector<HTMLButtonElement>(`.${PREFIX}-settings-btn`)!;
+  settingsButton.addEventListener('click', onSettingsToggle);
+
+  // ── Settings panel ──
+  const settingsPanel = document.createElement('div');
+  settingsPanel.className = `${PREFIX}-settings-panel`;
+  settingsPanel.setAttribute('role', 'region');
+  settingsPanel.setAttribute('aria-label', 'Token settings');
+  settingsPanel.innerHTML = /* html */ `
+    <div class="${PREFIX}-settings-body">
+      <div class="${PREFIX}-settings-token-status">
+        <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+          <path d="M13.78 4.22a.75.75 0 0 1 0 1.06l-7.25 7.25a.75.75 0 0 1-1.06 0L2.22 9.28a.751.751 0 0 1 .018-1.042.751.751 0 0 1 1.042-.018L6 10.94l6.72-6.72a.75.75 0 0 1 1.06 0Z"/>
+        </svg>
+        <span>Token active</span>
+      </div>
+      <label class="${PREFIX}-settings-label" for="${PREFIX}-pat-input">Personal Access Token</label>
+      <div class="${PREFIX}-pat-row">
+        <input type="password" id="${PREFIX}-pat-input" class="${PREFIX}-pat-input"
+               placeholder="ghp_\u2026" autocomplete="new-password" spellcheck="false"
+               aria-label="GitHub Personal Access Token"/>
+        <button class="${PREFIX}-pat-save-btn" type="button">Save</button>
+      </div>
+      <button class="${PREFIX}-pat-remove-btn" type="button">Remove token</button>
+      <p class="${PREFIX}-settings-help">Required for private repos &amp; higher rate limits
+        (5,000 req/hr vs 60). Stored locally in your browser only.</p>
+    </div>
+  `;
+  const patInput = settingsPanel.querySelector<HTMLInputElement>(`.${PREFIX}-pat-input`)!;
+  settingsPanel.querySelector<HTMLButtonElement>(`.${PREFIX}-pat-save-btn`)!
+    .addEventListener('click', () => {
+      const v = patInput.value.trim();
+      if (v) onSaveToken(v);
+    });
+  settingsPanel.querySelector<HTMLButtonElement>(`.${PREFIX}-pat-remove-btn`)!
+    .addEventListener('click', () => {
+      patInput.value = '';
+      onRemoveToken();
+    });
 
   // ── Search bar ──
   const searchBar = document.createElement('div');
@@ -269,6 +320,7 @@ export function createSidebar(
   content.className = `${PREFIX}-content`;
 
   sidebar.appendChild(header);
+  sidebar.appendChild(settingsPanel);
   sidebar.appendChild(searchBar);
   sidebar.appendChild(content);
 
@@ -505,6 +557,35 @@ export function updateSidebarHeader(sidebar: HTMLElement, repoInfo: RepoInfo): v
   if (repoSpan) repoSpan.textContent = repoInfo.repo;
   const branchSpan = sidebar.querySelector<HTMLElement>(`.${PREFIX}-header-branch-text`);
   if (branchSpan) branchSpan.textContent = repoInfo.ref;
+}
+
+/**
+ * Shows or hides the settings panel and updates the settings button's active state.
+ *
+ * @param sidebar - The sidebar `<aside>` element
+ * @param open    - True to show the panel, false to hide it
+ */
+export function setSettingsPanelOpen(sidebar: HTMLElement, open: boolean): void {
+  const panel = sidebar.querySelector<HTMLElement>(`.${PREFIX}-settings-panel`);
+  const btn = sidebar.querySelector<HTMLButtonElement>(`.${PREFIX}-settings-btn`);
+  if (panel) panel.classList.toggle(`${PREFIX}-settings-panel--open`, open);
+  if (btn) {
+    btn.classList.toggle(`${PREFIX}-settings-btn--active`, open);
+    btn.setAttribute('aria-pressed', String(open));
+  }
+}
+
+/**
+ * Updates the token indicator and remove button visibility in the settings panel.
+ *
+ * @param sidebar  - The sidebar `<aside>` element
+ * @param hasToken - True when a PAT is currently stored
+ */
+export function setTokenStatus(sidebar: HTMLElement, hasToken: boolean): void {
+  const status = sidebar.querySelector<HTMLElement>(`.${PREFIX}-settings-token-status`);
+  const removeBtn = sidebar.querySelector<HTMLButtonElement>(`.${PREFIX}-pat-remove-btn`);
+  if (status) status.hidden = !hasToken;
+  if (removeBtn) removeBtn.hidden = !hasToken;
 }
 
 // ─── Security Utility ────────────────────────────────────────────────────────

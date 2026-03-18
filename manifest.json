@@ -3,6 +3,7 @@
   "name": "GitHub Tree Navigator",
   "version": "0.1.0",
   "description": "Navigate GitHub repository file trees without page reloads",
+  "permissions": ["storage"],
   "host_permissions": [
     "https://api.github.com/*"
   ],
