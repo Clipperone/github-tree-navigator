@@ -1,0 +1,25 @@
+{
+  "manifest_version": 3,
+  "name": "GitHub Tree Navigator",
+  "version": "0.1.0",
+  "description": "Navigate GitHub repository file trees without page reloads",
+  "host_permissions": [
+    "https://api.github.com/*"
+  ],
+  "content_scripts": [
+    {
+      "matches": ["https://github.com/*/*"],
+      "js": ["src/inject_start.ts"],
+      "run_at": "document_start"
+    },
+    {
+      "matches": ["https://github.com/*/*"],
+      "js": ["src/content_script.ts"],
+      "css": ["src/styles/sidebar.css"],
+      "run_at": "document_idle"
+    }
+  ],
+  "action": {
+    "default_title": "GitHub Tree Navigator"
+  }
+}

@@ -1,0 +1,421 @@
+/*
+ * GitHub Tree Navigator — Sidebar Styles
+ *
+ * All selectors are scoped to the `#gtn-*` / `.gtn-*` namespace to prevent
+ * collisions with GitHub's own stylesheet.
+ *
+ * Dark/light mode is handled automatically by using GitHub's own CSS custom
+ * properties (--color-*). These are declared on <html> by GitHub and cascade
+ * down into the extension's injected DOM. Hard-coded fallback values are
+ * provided for robustness.
+ *
+ * Indentation of tree items is driven by the CSS custom property `--depth`
+ * set inline on each <li> by the renderer (e.g. style="--depth:2").
+ * Child elements inherit the variable and multiply it: calc(8px + var(--depth,0) * 16px).
+ */
+
+/* ─── Base Reset ─────────────────────────────────────────────────────────────
+   Scope the box-model reset tightly to extension elements only.            */
+
+#gtn-sidebar,
+#gtn-toggle-wrapper,
+#gtn-toggle {
+  box-sizing: border-box;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+#gtn-sidebar *,
+#gtn-sidebar *::before,
+#gtn-sidebar *::after {
+  box-sizing: inherit;
+}
+
+/* ─── Toggle Wrapper ─────────────────────────────────────────────────────────
+   Fixed vertical tab on the left edge; hover opens the sidebar.            */
+
+#gtn-toggle-wrapper {
+  position: fixed;
+  top: 50%;
+  transform: translateY(-50%);
+  left: 0;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 5px;
+  border: 1px solid var(--color-border-default, #d0d7de);
+  border-left: none;
+  border-radius: 0 8px 8px 0;
+  background: var(--color-canvas-default, #ffffff);
+  box-shadow: 1px 0 6px rgba(0, 0, 0, 0.06);
+  cursor: default;
+  transition: background-color 120ms ease;
+}
+
+#gtn-toggle-wrapper:hover {
+  background: var(--color-canvas-subtle, #f6f8fa);
+}
+
+/* Fade out and disable pointer events when the sidebar is open */
+#gtn-toggle-wrapper.gtn-toggle-wrapper--hidden {
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 180ms ease, transform 0ms;
+}
+
+.gtn-toggle-label {
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+  font-size: 9px;
+  font-weight: 700;
+  color: var(--color-fg-muted, #656d76);
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  user-select: none;
+  white-space: nowrap;
+}
+
+#gtn-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: none;
+  border-radius: 5px;
+  background: transparent;
+  color: #2c8fc4; /* same sky-blue as sidebar folder icons */
+  cursor: pointer;
+  transition: color 120ms ease, background-color 120ms ease;
+  outline-offset: -2px;
+}
+
+#gtn-toggle:hover {
+  color: var(--color-accent-fg, #0969da);
+  background: var(--color-neutral-muted, rgba(175, 184, 193, 0.2));
+}
+
+#gtn-toggle:focus-visible {
+  outline: 2px solid var(--color-accent-fg, #0969da);
+}
+
+/* ─── Sidebar Panel ──────────────────────────────────────────────────────────
+   Full-height panel that slides in from the right.                         */
+
+/* Push the page content when the sidebar is pinned */
+body.gtn-body--sidebar-pinned {
+  margin-left: 300px !important;
+  transition: margin-left 200ms ease;
+}
+
+#gtn-sidebar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  z-index: 9998;
+  width: 300px;
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid var(--color-border-default, #d0d7de);
+  background: var(--color-canvas-default, #ffffff);
+  transform: translateX(-100%);
+  transition: transform 200ms ease;
+  overflow: hidden;
+  box-shadow: 2px 0 8px rgba(0, 0, 0, 0.08);
+  /* Prevent layout shift on the underlying page */
+  will-change: transform;
+}
+
+#gtn-sidebar.gtn-sidebar--open {
+  transform: translateX(0);
+}
+
+/* ─── Sidebar Header ─────────────────────────────────────────────────────── */
+
+.gtn-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--color-border-default, #d0d7de);
+  background: var(--color-canvas-subtle, #f6f8fa);
+  flex-shrink: 0;
+  gap: 8px;
+}
+
+.gtn-header-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+}
+
+.gtn-header-repo {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-fg-default, #1f2328);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  user-select: none;
+}
+
+.gtn-header-branch {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  color: var(--color-fg-muted, #656d76);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  user-select: none;
+}
+
+.gtn-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+.gtn-pin-btn,
+.gtn-close-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--color-fg-muted, #656d76);
+  cursor: pointer;
+  transition: color 120ms ease, background-color 120ms ease;
+  outline-offset: 1px;
+}
+
+.gtn-pin-btn:hover,
+.gtn-close-btn:hover {
+  color: var(--color-fg-default, #1f2328);
+  background: var(--color-neutral-muted, rgba(175, 184, 193, 0.2));
+}
+
+.gtn-pin-btn:focus-visible,
+.gtn-close-btn:focus-visible {
+  outline: 2px solid var(--color-accent-fg, #0969da);
+}
+
+/* Active / pinned state */
+.gtn-pin-btn--active {
+  color: var(--color-accent-fg, #0969da);
+  background: var(--color-accent-subtle, rgba(9, 105, 218, 0.1));
+}
+
+.gtn-pin-btn--active:hover {
+  color: var(--color-accent-fg, #0969da);
+  background: var(--color-accent-muted, rgba(9, 105, 218, 0.2));
+}
+
+/* Pin icon swap: diagonal thumbtack when unpinned, vertical solid pin when pinned */
+.gtn-pin-on { display: none; }
+.gtn-pin-btn--active .gtn-pin-off { display: none; }
+.gtn-pin-btn--active .gtn-pin-on { display: flex; }
+
+/* ─── Content / Scroll Area ─────────────────────────────────────────────── */
+
+.gtn-content {
+  flex: 1 1 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 6px 0;
+  /* Thin, unobtrusive scrollbar in modern browsers */
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-border-default, #d0d7de) transparent;
+}
+
+/* ─── Loading State ─────────────────────────────────────────────────────── */
+
+.gtn-loading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 16px 12px;
+  color: var(--color-fg-muted, #656d76);
+  font-size: 12px;
+}
+
+.gtn-spinner {
+  flex-shrink: 0;
+  width: 14px;
+  height: 14px;
+  border: 2px solid var(--color-border-default, #d0d7de);
+  border-top-color: var(--color-accent-fg, #0969da);
+  border-radius: 50%;
+  animation: gtn-spin 0.6s linear infinite;
+}
+
+@keyframes gtn-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ─── Error State ───────────────────────────────────────────────────────── */
+
+.gtn-error {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 8px;
+  padding: 10px 12px;
+  border-radius: 6px;
+  border: 1px solid var(--color-danger-muted, rgba(255, 129, 130, 0.4));
+  background: var(--color-danger-subtle, #ffebe9);
+  color: var(--color-danger-fg, #cf222e);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.gtn-error .gtn-icon {
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+/* ─── Empty State ───────────────────────────────────────────────────────── */
+
+.gtn-empty {
+  padding: 16px 12px;
+  color: var(--color-fg-muted, #656d76);
+  font-size: 12px;
+  text-align: center;
+  margin: 0;
+}
+
+/* ─── Tree Lists ────────────────────────────────────────────────────────── */
+
+.gtn-tree,
+.gtn-subtree {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.gtn-tree-item {
+  display: block;
+}
+
+/* ─── Directory Button ──────────────────────────────────────────────────── */
+
+.gtn-dir-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  width: 100%;
+  /* Depth-driven left padding inherited from --depth on the parent <li> */
+  padding: 2px 8px 2px calc(8px + var(--depth, 0) * 16px);
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--color-fg-default, #1f2328); /* same as file names */
+  font-size: 12px;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  transition: background-color 80ms ease;
+  outline-offset: -2px;
+}
+
+.gtn-dir-btn:hover {
+  background: var(--color-action-list-item-default-hover-bg, rgba(208, 215, 222, 0.32));
+}
+
+.gtn-dir-btn:focus-visible {
+  outline: 2px solid var(--color-accent-fg, #0969da);
+}
+
+/* ─── File Anchor ───────────────────────────────────────────────────────── */
+
+.gtn-file-link {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px 2px calc(8px + var(--depth, 0) * 16px);
+  border-radius: 4px;
+  color: var(--color-fg-default, #1f2328);
+  font-size: 12px;
+  text-decoration: none;
+  white-space: nowrap;
+  overflow: hidden;
+  transition: background-color 80ms ease;
+  outline-offset: -2px;
+}
+
+.gtn-file-link:hover {
+  background: var(--color-action-list-item-default-hover-bg, rgba(208, 215, 222, 0.32));
+  color: var(--color-fg-default, #1f2328);
+  text-decoration: none;
+}
+
+.gtn-file-link:focus-visible {
+  outline: 2px solid var(--color-accent-fg, #0969da);
+}
+
+/* Active / currently-viewed file */
+.gtn-file-link--active {
+  background: var(--color-accent-subtle, rgba(9, 105, 218, 0.1));
+  color: var(--color-accent-fg, #0969da);
+  font-weight: 600;
+}
+
+.gtn-file-link--active:hover {
+  background: var(--color-accent-muted, rgba(9, 105, 218, 0.2));
+  color: var(--color-accent-fg, #0969da);
+}
+
+/* ─── Icons ─────────────────────────────────────────────────────────────── */
+
+.gtn-chevron {
+  flex-shrink: 0;
+  color: #2c8fc4; /* darker sky blue */
+  transition: transform 150ms ease;
+}
+
+.gtn-chevron--open {
+  transform: rotate(90deg);
+}
+
+.gtn-icon-dir {
+  flex-shrink: 0;
+  color: #2c8fc4; /* darker sky blue */
+}
+
+.gtn-icon-file {
+  flex-shrink: 0;
+  color: var(--color-fg-muted, #656d76);
+}
+
+.gtn-icon {
+  flex-shrink: 0;
+}
+
+/* ─── Item Label ────────────────────────────────────────────────────────── */
+
+.gtn-item-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
