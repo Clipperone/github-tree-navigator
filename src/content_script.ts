@@ -26,6 +26,8 @@ import {
   renderTree,
   setSidebarVisible,
   updateSidebarHeader,
+  setSettingsPanelOpen,
+  setTokenStatus,
   PREFIX,
 } from './ui';
 import { getState, setState, subscribe, resetState } from './state';
@@ -36,6 +38,7 @@ const TOGGLE_WRAPPER_ID = `${PREFIX}-toggle-wrapper`;
 const SIDEBAR_ID = `${PREFIX}-sidebar`;
 const STORAGE_KEY_PINNED    = 'gtn-pinned';
 const STORAGE_KEY_EXPANDED  = 'gtn-expanded-paths';
+const STORAGE_KEY_TOKEN     = 'gtn-auth-token';
 
 // ─── SessionStorage helpers ──────────────────────────────────────────────────
 
@@ -49,6 +52,22 @@ function loadExpandedPaths(): Set<string> {
     if (raw) return new Set(JSON.parse(raw) as string[]);
   } catch { /* ignore */ }
   return new Set<string>();
+}
+
+// ─── Token Storage ──────────────────────────────────────────────────────────
+
+/** In-memory copy of the PAT; loaded once from chrome.storage.local on startup. */
+let _authToken: string | undefined;
+
+/** Reads the stored PAT from chrome.storage.local into `_authToken`. */
+async function loadStoredToken(): Promise<void> {
+  try {
+    const result = await chrome.storage.local.get(STORAGE_KEY_TOKEN);
+    const raw = result[STORAGE_KEY_TOKEN];
+    _authToken = typeof raw === 'string' && raw.length > 0 ? raw : undefined;
+  } catch {
+    _authToken = undefined;
+  }
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -92,7 +111,11 @@ function mount(): void {
   unmount();
 
   const { wrapper: toggleWrapper, button: toggleBtn } = createToggleButton(handleToggle);
-  const { sidebar, content, pinButton } = createSidebar(handleClose, handlePin, handleSearch, repoInfo);
+  const { sidebar, content, pinButton } = createSidebar(
+    handleClose, handlePin, handleSearch,
+    handleSettingsToggle, handleSaveToken, handleRemoveToken,
+    repoInfo,
+  );
 
   document.body.appendChild(toggleWrapper);
   document.body.appendChild(sidebar);
@@ -113,6 +136,7 @@ function mount(): void {
   pinButton.setAttribute('title', initialS.pinned ? 'Unpin sidebar' : 'Keep sidebar open');
   pinButton.setAttribute('aria-label', initialS.pinned ? 'Unpin sidebar' : 'Keep sidebar open');
   if (initialS.repoInfo !== null) updateSidebarHeader(sidebar, initialS.repoInfo);
+  setTokenStatus(sidebar, _authToken !== undefined);
 
   // React to every future state change
   _unsubscribe = subscribe((s) => {
@@ -198,6 +222,39 @@ function handleSearch(query: string): void {
   setState({ filterQuery: query });
 }
 
+/** Toggles the settings panel open/closed without touching AppState. */
+function handleSettingsToggle(): void {
+  const sidebar = document.getElementById(SIDEBAR_ID);
+  if (!sidebar) return;
+  const isOpen = sidebar.querySelector(`.${PREFIX}-settings-panel`)
+    ?.classList.contains(`${PREFIX}-settings-panel--open`) === true;
+  setSettingsPanelOpen(sidebar, !isOpen);
+}
+
+/** Saves a PAT to chrome.storage.local and refreshes the tree with the new token. */
+async function handleSaveToken(token: string): Promise<void> {
+  try {
+    await chrome.storage.local.set({ [STORAGE_KEY_TOKEN]: token });
+    _authToken = token;
+    const sidebar = document.getElementById(SIDEBAR_ID);
+    if (sidebar) setTokenStatus(sidebar, true);
+    setState({ treeNodes: [], error: null });
+    if (getState().sidebarOpen) await loadTree();
+  } catch { /* chrome.storage unavailable */ }
+}
+
+/** Removes the stored PAT and refreshes the tree without authentication. */
+async function handleRemoveToken(): Promise<void> {
+  try {
+    await chrome.storage.local.remove(STORAGE_KEY_TOKEN);
+    _authToken = undefined;
+    const sidebar = document.getElementById(SIDEBAR_ID);
+    if (sidebar) setTokenStatus(sidebar, false);
+    setState({ treeNodes: [], error: null });
+    if (getState().sidebarOpen) await loadTree();
+  } catch { /* chrome.storage unavailable */ }
+}
+
 /** Closes the sidebar and removes pin. */
 function handleClose(): void {
   cancelHoverClose();
@@ -279,14 +336,14 @@ async function loadTree(): Promise<void> {
 
   // Resolve 'HEAD' → actual default branch name for display
   if (repoInfo.ref === 'HEAD') {
-    const branch = await fetchDefaultBranch(repoInfo.owner, repoInfo.repo);
+    const branch = await fetchDefaultBranch(repoInfo.owner, repoInfo.repo, _authToken);
     if (branch !== null) {
       repoInfo = { ...repoInfo, ref: branch };
       setState({ repoInfo });
     }
   }
 
-  const result = await fetchRepoTree(repoInfo);
+  const result = await fetchRepoTree(repoInfo, _authToken);
 
   if (result.ok) {
     setState({ treeNodes: result.data, loading: false });
@@ -344,31 +401,8 @@ function handleNavigation(): void {
 
 // ─── Bootstrap ───────────────────────────────────────────────────────────────
 
-// Restore persisted state from sessionStorage (survives full-page reloads)
-try {
-  const wasPinned = sessionStorage.getItem(STORAGE_KEY_PINNED) === 'true';
-  const expandedPaths = loadExpandedPaths();
-  const activePath = parseActiveFilePath(window.location.href);
-  setState({
-    ...(wasPinned ? { pinned: true, sidebarOpen: true } : {}),
-    expandedPaths,
-    activePath,
-  });
-} catch { /* sessionStorage unavailable — start with defaults */ }
-
-// Initial mount when the content script first runs
-mount();
-
-// Remove the document_start inline style now that the CSS class is live
-// (subscriber applied gtn-body--sidebar-pinned synchronously inside mount)
-document.getElementById('gtn-pinned-start')?.remove();
-
-// Auto-load tree when the sidebar is pinned open on initial page load
-if (getState().sidebarOpen) {
-  void loadTree();
-}
-
-// GitHub uses Turbo Drive for client-side navigation — listen for page transitions
+// Register SPA navigation listeners synchronously so no event fires before
+// they are attached, regardless of the async token-load that follows.
 document.addEventListener('turbo:load', handleNavigation);
 document.addEventListener('turbo:render', handleNavigation);
 // Legacy PJAX fallback (older GitHub versions)
@@ -386,3 +420,34 @@ document.addEventListener('turbo:before-render', (event: Event) => {
   newBody.classList.add('gtn-body--sidebar-pinned');
   newBody.style.setProperty('margin-left', '300px', 'important');
 });
+
+// Restore persisted UI state, load the stored PAT, then mount the sidebar.
+// Wrapped in an async IIFE so we can await chrome.storage.local.get.
+void (async () => {
+  // Restore persisted state from sessionStorage (survives full-page reloads)
+  try {
+    const wasPinned = sessionStorage.getItem(STORAGE_KEY_PINNED) === 'true';
+    const expandedPaths = loadExpandedPaths();
+    const activePath = parseActiveFilePath(window.location.href);
+    setState({
+      ...(wasPinned ? { pinned: true, sidebarOpen: true } : {}),
+      expandedPaths,
+      activePath,
+    });
+  } catch { /* sessionStorage unavailable — start with defaults */ }
+
+  // Load PAT before mounting so the token indicator reflects the stored state.
+  await loadStoredToken();
+
+  // Initial mount when the content script first runs
+  mount();
+
+  // Remove the document_start inline style now that the CSS class is live
+  // (subscriber applied gtn-body--sidebar-pinned synchronously inside mount)
+  document.getElementById('gtn-pinned-start')?.remove();
+
+  // Auto-load tree when the sidebar is pinned open on initial page load
+  if (getState().sidebarOpen) {
+    void loadTree();
+  }
+})();

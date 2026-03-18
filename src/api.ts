@@ -77,7 +77,8 @@ export async function fetchRepoTree(
     const response = await fetch(url, { headers });
 
     if (!response.ok) {
-      return { ok: false, error: buildHttpError(response.status, owner, repo) };
+      const githubMsg = await readErrorMessage(response);
+      return { ok: false, error: buildHttpError(response.status, owner, repo, githubMsg, response.headers) };
     }
 
     const json: GitHubTreeResponse = await response.json() as GitHubTreeResponse;
@@ -219,21 +220,55 @@ export function parseActiveFilePath(href: string): string | null {
 
 /**
  * Converts an HTTP error status code into a user-readable message.
+ * Accepts the raw GitHub `message` body and response headers to distinguish
+ * rate-limit 403s from permission 403s.
  *
- * @param status - HTTP response status code
- * @param owner  - Repository owner (for 404 messaging)
- * @param repo   - Repository name (for 404 messaging)
- * @returns      - Human-readable error string
+ * @param status       - HTTP response status code
+ * @param owner        - Repository owner
+ * @param repo         - Repository name
+ * @param githubMsg    - `message` field from the GitHub JSON error body
+ * @param respHeaders  - Response headers (used to check X-RateLimit-Remaining)
+ * @returns            - Human-readable error string
  */
-function buildHttpError(status: number, owner: string, repo: string): string {
+function buildHttpError(
+  status: number,
+  owner: string,
+  repo: string,
+  githubMsg = '',
+  respHeaders?: Headers,
+): string {
   switch (status) {
-    case 403:
-      return 'GitHub API rate limit exceeded. Try again later or add an auth token.';
+    case 401:
+      return 'Authentication failed — token is invalid or expired. Update it in Settings.';
+    case 403: {
+      const isRateLimit =
+        respHeaders?.get('X-RateLimit-Remaining') === '0' ||
+        githubMsg.toLowerCase().includes('rate limit');
+      if (isRateLimit) {
+        return 'GitHub API rate limit exceeded. Add a token in Settings for 5 000 req/hr instead of 60.';
+      }
+      // Fine-grained PATs or classic tokens without `repo` scope
+      const hint = githubMsg ? ` GitHub says: “${githubMsg}”.` : '';
+      return `Access denied — token lacks the required permissions.${hint} A classic PAT needs the \`repo\` scope; a fine-grained PAT needs Contents → Read.`;
+    }
     case 404:
-      return `Repository "${owner}/${repo}" not found or is private.`;
+      return `Repository "${owner}/${repo}" not found. If it is private, add a token with Contents read access in Settings.`;
     case 409:
       return `Repository "${owner}/${repo}" is empty.`;
     default:
       return `GitHub API returned an unexpected status: ${status}.`;
+  }
+}
+
+/**
+ * Attempts to read a GitHub JSON error body and return the `message` field.
+ * Returns an empty string on any failure (body not JSON, already consumed, etc.).
+ */
+async function readErrorMessage(response: Response): Promise<string> {
+  try {
+    const body = await response.json() as { message?: unknown };
+    return typeof body.message === 'string' ? body.message : '';
+  } catch {
+    return '';
   }
 }

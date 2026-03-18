@@ -189,6 +189,158 @@ body.gtn-body--sidebar-pinned {
   flex-shrink: 0;
 }
 
+/* ─── Settings Button ────────────────────────────────────────────────────── */
+
+.gtn-settings-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--color-fg-muted, #656d76);
+  cursor: pointer;
+  transition: color 120ms ease, background-color 120ms ease;
+  outline-offset: 1px;
+}
+
+.gtn-settings-btn:hover {
+  color: var(--color-fg-default, #1f2328);
+  background: var(--color-neutral-muted, rgba(175, 184, 193, 0.2));
+}
+
+.gtn-settings-btn:focus-visible {
+  outline: 2px solid var(--color-accent-fg, #0969da);
+}
+
+.gtn-settings-btn--active {
+  color: var(--color-accent-fg, #0969da);
+  background: var(--color-accent-subtle, rgba(9, 105, 218, 0.1));
+}
+
+.gtn-settings-btn--active:hover {
+  color: var(--color-accent-fg, #0969da);
+  background: var(--color-accent-muted, rgba(9, 105, 218, 0.2));
+}
+
+/* ─── Settings Panel ─────────────────────────────────────────────────────── */
+
+.gtn-settings-panel {
+  display: none;
+  border-bottom: 1px solid var(--color-border-default, #d0d7de);
+  background: var(--color-canvas-subtle, #f6f8fa);
+  flex-shrink: 0;
+}
+
+.gtn-settings-panel--open {
+  display: block;
+}
+
+.gtn-settings-body {
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.gtn-settings-token-status {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  color: var(--color-success-fg, #1a7f37);
+  font-weight: 500;
+}
+
+.gtn-settings-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--color-fg-default, #1f2328);
+}
+
+.gtn-pat-row {
+  display: flex;
+  gap: 6px;
+}
+
+.gtn-pat-input {
+  flex: 1;
+  min-width: 0;
+  padding: 4px 8px;
+  border: 1px solid var(--color-border-default, #d0d7de);
+  border-radius: 6px;
+  background: var(--color-canvas-default, #ffffff);
+  color: var(--color-fg-default, #1f2328);
+  font-size: 11px;
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  outline: none;
+  transition: border-color 120ms ease, box-shadow 120ms ease;
+}
+
+.gtn-pat-input:focus {
+  border-color: var(--color-accent-fg, #0969da);
+  box-shadow: 0 0 0 3px var(--color-accent-subtle, rgba(9, 105, 218, 0.1));
+}
+
+.gtn-pat-save-btn {
+  flex-shrink: 0;
+  padding: 4px 10px;
+  border: 1px solid var(--color-btn-border, rgba(31, 35, 40, 0.15));
+  border-radius: 6px;
+  background: var(--color-btn-primary-bg, #1f883d);
+  color: var(--color-btn-primary-text, #ffffff);
+  font-size: 11px;
+  font-family: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 80ms ease;
+  white-space: nowrap;
+}
+
+.gtn-pat-save-btn:hover {
+  background: var(--color-btn-primary-hover-bg, #1a7f37);
+}
+
+.gtn-pat-save-btn:focus-visible {
+  outline: 2px solid var(--color-accent-fg, #0969da);
+  outline-offset: 1px;
+}
+
+.gtn-pat-remove-btn {
+  padding: 4px 8px;
+  border: 1px solid var(--color-danger-muted, rgba(255, 129, 130, 0.4));
+  border-radius: 6px;
+  background: transparent;
+  color: var(--color-danger-fg, #cf222e);
+  font-size: 11px;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background-color 80ms ease;
+  align-self: flex-start;
+}
+
+.gtn-pat-remove-btn:hover {
+  background: var(--color-danger-subtle, #ffebe9);
+}
+
+.gtn-pat-remove-btn:focus-visible {
+  outline: 2px solid var(--color-danger-fg, #cf222e);
+  outline-offset: 1px;
+}
+
+.gtn-settings-help {
+  font-size: 11px;
+  color: var(--color-fg-muted, #656d76);
+  margin: 0;
+  line-height: 1.4;
+}
+
+/* ─── Pin Button ─────────────────────────────────────────────────────────── */
+
 .gtn-pin-btn,
 .gtn-close-btn {
   display: flex;
