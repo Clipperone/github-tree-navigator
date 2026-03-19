@@ -87,22 +87,61 @@ export function buildTreeHierarchy(nodes: TreeNode[]): TreeItem[] {
 // ─── Filter Helpers ───────────────────────────────────────────────────────────
 
 /**
- * Returns the subset of nodes required to display all blobs whose path
- * contains `query` (case-insensitive substring match), together with every
- * ancestor directory node needed to make those blobs reachable in the tree.
+ * Converts a glob pattern (supporting `*` and `?`) into a case-insensitive
+ * RegExp anchored at both ends. All regex-special characters other than `*`
+ * and `?` are escaped, so user input cannot inject arbitrary regex syntax.
+ *
+ * @param pattern - Glob string, e.g. `*.yaml` or `src/*.ts`
+ * @returns       - Anchored RegExp ready for `test()`
+ */
+function globToRegex(pattern: string): RegExp {
+  // Escape all regex-special chars except * and ?
+  const escaped = pattern.replace(/[.+^${}()|[\]\\]/g, '\\$&');
+  // * → any sequence of characters, ? → any single character
+  const source = escaped.replace(/\*/g, '.*').replace(/\?/g, '.');
+  return new RegExp('^' + source + '$', 'i');
+}
+
+/**
+ * Returns the subset of nodes required to display all blobs matching `query`,
+ * together with every ancestor directory node needed to reach those blobs.
+ *
+ * When `query` contains `*` or `?` it is treated as a glob pattern:
+ * - Patterns **without** a `/` are matched against the filename only
+ *   (e.g. `*.yaml` matches any YAML file regardless of directory).
+ * - Patterns **with** a `/` are matched against the full repo-relative path
+ *   (e.g. `src/*.ts` matches TypeScript files directly inside `src/`).
+ *
+ * When `query` contains neither wildcard, a plain case-insensitive substring
+ * match is performed against the full path (original behaviour).
  *
  * @param nodes - Full flat node list from the GitHub Trees API
  * @param query - Raw search string (may contain mixed case / leading spaces)
  * @returns     - Filtered flat node list; empty array when nothing matches
  */
 function filterNodes(nodes: TreeNode[], query: string): TreeNode[] {
-  const q = query.toLowerCase().trim();
+  const q = query.trim();
   if (!q) return nodes;
 
-  // Collect paths of blobs whose full path contains the query string
+  const isGlob = q.includes('*') || q.includes('?');
+  let matchesBlob: (path: string) => boolean;
+
+  if (isGlob) {
+    const hasPathSep = q.includes('/');
+    const re = globToRegex(q);
+    matchesBlob = (path: string) => {
+      const target = hasPathSep ? path : (path.split('/').at(-1) ?? path);
+      return re.test(target);
+    };
+  } else {
+    const lower = q.toLowerCase();
+    matchesBlob = (path: string) => path.toLowerCase().includes(lower);
+  }
+
+  // Collect paths of matching blobs
   const matchedPaths = new Set<string>();
   for (const node of nodes) {
-    if (node.type === 'blob' && node.path.toLowerCase().includes(q)) {
+    if (node.type === 'blob' && matchesBlob(node.path)) {
       matchedPaths.add(node.path);
     }
   }
@@ -451,16 +490,40 @@ export function createSidebar(
   const searchBar = document.createElement('div');
   searchBar.className = `${PREFIX}-search-bar`;
 
+  const searchInner = document.createElement('div');
+  searchInner.className = `${PREFIX}-search-inner`;
+
   const searchInput = document.createElement('input');
   searchInput.type = 'search';
   searchInput.className = `${PREFIX}-search-input`;
-  searchInput.placeholder = 'Filter files\u2026';
+  searchInput.placeholder = 'Filter files\u2026 or *.ext';
   searchInput.setAttribute('aria-label', 'Filter files in tree');
   searchInput.setAttribute('autocomplete', 'off');
   searchInput.setAttribute('spellcheck', 'false');
-  searchInput.addEventListener('input', () => { onSearch(searchInput.value); });
 
-  searchBar.appendChild(searchInput);
+  const clearBtn = document.createElement('button');
+  clearBtn.type = 'button';
+  clearBtn.className = `${PREFIX}-search-clear`;
+  clearBtn.setAttribute('aria-label', 'Clear search');
+  clearBtn.setAttribute('title', 'Clear search');
+  clearBtn.setAttribute('hidden', '');
+  clearBtn.innerHTML = `<svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M3.72 3.72a.75.75 0 0 1 1.06 0L8 6.94l3.22-3.22a.749.749 0 0 1 1.275.326.749.749 0 0 1-.215.734L9.06 8l3.22 3.22a.749.749 0 0 1-.326 1.275.749.749 0 0 1-.734-.215L8 9.06l-3.22 3.22a.751.751 0 0 1-1.042-.018.751.751 0 0 1-.018-1.042L6.94 8 3.72 4.78a.75.75 0 0 1 0-1.06Z"/></svg>`;
+
+  searchInput.addEventListener('input', () => {
+    clearBtn.toggleAttribute('hidden', searchInput.value.length === 0);
+    onSearch(searchInput.value);
+  });
+
+  clearBtn.addEventListener('click', () => {
+    searchInput.value = '';
+    clearBtn.setAttribute('hidden', '');
+    searchInput.focus();
+    onSearch('');
+  });
+
+  searchInner.appendChild(searchInput);
+  searchInner.appendChild(clearBtn);
+  searchBar.appendChild(searchInner);
 
   // ── Scrollable content area ──
   const content = document.createElement('div');
@@ -538,13 +601,14 @@ export function renderTree(
   onToggleDir: (path: string) => void,
   onFileClick: (path: string, url: string) => void,
 ): void {
-  const isFiltering = filterQuery.trim().length > 0;
+  const trimmed = filterQuery.trim();
+  const isFiltering = trimmed.length > 0;
   const displayNodes = isFiltering ? filterNodes(nodes, filterQuery) : nodes;
   const hierarchy = buildTreeHierarchy(displayNodes);
 
   if (hierarchy.length === 0) {
     if (isFiltering) {
-      container.innerHTML = `<p class="${PREFIX}-search-empty">No files match <strong>${escapeHtml(filterQuery.trim())}</strong></p>`;
+      container.innerHTML = `<p class="${PREFIX}-search-empty">No files match <strong>${escapeHtml(trimmed)}</strong></p>`;
     } else {
       container.innerHTML = `<p class="${PREFIX}-empty">This repository appears to be empty.</p>`;
     }
@@ -556,13 +620,17 @@ export function renderTree(
     ? new Set(displayNodes.filter((n) => n.type === 'tree').map((n) => n.path))
     : expandedPaths;
 
+  // Glob patterns (containing * or ?) cannot be highlighted as substrings.
+  const isGlob = trimmed.includes('*') || trimmed.includes('?');
+  const highlightQuery = isFiltering && !isGlob ? trimmed : '';
+
   const ul = document.createElement('ul');
   ul.className = `${PREFIX}-tree`;
   ul.setAttribute('role', 'tree');
 
   renderTreeItems(
     ul, hierarchy, effectiveExpanded, repoInfo, activePath,
-    isFiltering ? filterQuery.trim() : '',
+    highlightQuery,
     onToggleDir, onFileClick, 0,
   );
 
