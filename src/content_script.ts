@@ -466,7 +466,15 @@ function handleNavigation(): void {
     prevRepoInfo.owner === newRepoInfo.owner &&
     prevRepoInfo.repo  === newRepoInfo.repo;
 
-  setState({ repoInfo: newRepoInfo, activePath: newActivePath, loading: false, error: null });
+  // When navigating within the same repo and the new URL has no explicit branch
+  // (parseGitHubUrl returns 'HEAD'), keep the already-resolved branch name so
+  // the header never reverts to "HEAD" after the first tree load.
+  const effectiveRepoInfo =
+    sameRepo && newRepoInfo.ref === 'HEAD' && prevRepoInfo !== null && prevRepoInfo.ref !== 'HEAD'
+      ? { ...newRepoInfo, ref: prevRepoInfo.ref }
+      : newRepoInfo;
+
+  setState({ repoInfo: effectiveRepoInfo, activePath: newActivePath, loading: false, error: null });
 
   if (!sameRepo) {
     // Different repository — clear stale tree, reset filter, and refetch
