@@ -1,13 +1,16 @@
 {
   "name": "github-tree-navigator",
   "private": true,
-  "version": "0.1.0",
+  "version": "1.0.0",
   "type": "module",
   "description": "Chrome extension to navigate GitHub repository file trees without page reloads",
   "scripts": {
     "dev": "vite build --watch --mode development",
     "build": "vite build",
-    "type-check": "tsc --noEmit"
+    "type-check": "tsc --noEmit",
+    "preversion": "npm run type-check",
+    "version": "node scripts/sync-version.js && git add manifest.json",
+    "postversion": "git push && git push --tags"
   },
   "devDependencies": {
     "@crxjs/vite-plugin": "^2.0.0-beta.23",

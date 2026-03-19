@@ -140,6 +140,139 @@ function highlightMatch(text: string, query: string): string {
   return `${escapeHtml(before)}<mark class="${PREFIX}-highlight">${escapeHtml(match)}</mark>${escapeHtml(after)}`;
 }
 
+// ─── File Type Icons ─────────────────────────────────────────────────────────
+
+/**
+ * Icon key categories used to select the correct SVG and CSS class.
+ * Each key maps to a distinct icon in `FILE_ICON_SVG_PATHS`.
+ */
+type FileIconKey =
+  | 'dir'
+  | 'ts'
+  | 'js'
+  | 'json'
+  | 'md'
+  | 'yaml'
+  | 'image'
+  | 'lock'
+  | 'test'
+  | 'css'
+  | 'html'
+  | 'file';
+
+/**
+ * SVG `<path>` data keyed by `FileIconKey`.
+ * All paths are static string literals — no user-supplied data ever enters here.
+ * viewBox is always "0 0 16 16", width/height 16.
+ */
+const FILE_ICON_SVG_PATHS: Record<FileIconKey, string> = {
+  // GitHub Octicons folder
+  dir: '<path d="M1.75 1A1.75 1.75 0 0 0 0 2.75v10.5C0 14.216.784 15 1.75 15h12.5A1.75 1.75 0 0 0 16 13.25v-8.5A1.75 1.75 0 0 0 14.25 3H7.5a.25.25 0 0 1-.2-.1l-.9-1.2C6.07 1.26 5.55 1 5 1H1.75Z"/>',
+  // TypeScript / TSX — "T" monogram in a rounded square
+  ts:   '<rect x="2" y="2" width="12" height="12" rx="2" fill="currentColor"/><text x="8" y="11.5" text-anchor="middle" font-size="8" font-weight="700" font-family="ui-monospace,monospace" fill="var(--color-canvas-default,#fff)">T</text>',
+  // JavaScript / JSX — "J" monogram
+  js:   '<rect x="2" y="2" width="12" height="12" rx="2" fill="currentColor"/><text x="8" y="11.5" text-anchor="middle" font-size="8" font-weight="700" font-family="ui-monospace,monospace" fill="var(--color-canvas-default,#fff)">J</text>',
+  // JSON — curly braces
+  json: '<path d="M4.5 2C3.12 2 2 3.12 2 4.5v1C2 6.33 1.33 7 .5 7v2c.83 0 1.5.67 1.5 1.5v1C2 12.88 3.12 14 4.5 14H5v-1.5h-.5c-.28 0-.5-.22-.5-.5v-1C4 9.55 3.45 9 2.75 9l-.25-.01V8l.25-.01C3.45 8 4 7.45 4 6.75v-1c0-.28.22-.5.5-.5H5V3.75h-.5zM11.5 2C12.88 2 14 3.12 14 4.5v1c0 .75.55 1.25 1.25 1.25l.25.01V8l-.25.01c-.7 0-1.25.55-1.25 1.25v1c0 1.38-1.12 2.5-2.5 2.5H11v-1.5h.5c.28 0 .5-.22.5-.5v-1c0-.83.67-1.5 1.5-1.5V7c-.83 0-1.5-.67-1.5-1.5v-1c0-.28-.22-.5-.5-.5H11V2h.5zM7.25 10.5a.75.75 0 1 1 1.5 0 .75.75 0 0 1-1.5 0zM8 4.75a.75.75 0 1 0 0 1.5.75.75 0 0 0 0-1.5zM7.25 8A.75.75 0 1 1 8.75 8 .75.75 0 0 1 7.25 8z"/>',
+  // Markdown — "M↓"
+  md:   '<path d="M14.85 3H1.15C.52 3 0 3.52 0 4.15v7.69C0 12.48.52 13 1.15 13h13.69c.64 0 1.16-.52 1.16-1.16V4.15C16 3.52 15.48 3 14.85 3zM9 11H7.5V8.5L6 10.5 4.5 8.5V11H3V5h1.5l1.5 2 1.5-2H9v6zm2.99.5L10 8.5h1.5V5H13v3.5h1.5L11.99 11.5z"/>',
+  // YAML — stacked horizontal lines (config document)
+  yaml: '<path d="M2 4.75A.75.75 0 0 1 2.75 4h10.5a.75.75 0 0 1 0 1.5H2.75A.75.75 0 0 1 2 4.75zM2 8a.75.75 0 0 1 .75-.75h10.5a.75.75 0 0 1 0 1.5H2.75A.75.75 0 0 1 2 8zm0 3.25a.75.75 0 0 1 .75-.75h5.5a.75.75 0 0 1 0 1.5h-5.5a.75.75 0 0 1-.75-.75z"/>',
+  // Image — mountain + sun
+  image:'<path d="M1.75 2.5A1.75 1.75 0 0 0 0 4.25v7.5C0 12.216.784 13 1.75 13h12.5A1.75 1.75 0 0 0 16 11.75v-7.5A1.75 1.75 0 0 0 14.25 2.5H1.75zM1.5 4.25a.25.25 0 0 1 .25-.25h12.5a.25.25 0 0 1 .25.25v5.69l-3.22-3.22a.75.75 0 0 0-1.06 0L7.5 9.69 5.78 7.97a.75.75 0 0 0-1.06 0L1.5 11.19V4.25zm.75 7.25 3-3 1.72 1.72a.75.75 0 0 0 1.06 0L10.5 7.69l3 3H2.25zM11 5.75a1 1 0 1 0 2 0 1 1 0 0 0-2 0z"/>',
+  // Lock — padlock (lockfiles)
+  lock: '<path d="M4 4a4 4 0 0 1 8 0v2h.25c.966 0 1.75.784 1.75 1.75v5.5A1.75 1.75 0 0 1 12.25 15h-8.5A1.75 1.75 0 0 1 2 13.25v-5.5C2 6.784 2.784 6 3.75 6H4V4zm8.25 3.5h-8.5a.25.25 0 0 0-.25.25v5.5c0 .138.112.25.25.25h8.5a.25.25 0 0 0 .25-.25v-5.5a.25.25 0 0 0-.25-.25zM10.5 6V4a2.5 2.5 0 0 0-5 0v2h5zM8 13a1 1 0 1 1 0-2 1 1 0 0 1 0 2z"/>',
+  // Test / spec — beaker / flask
+  test: '<path d="M14.54 12.44 10 5.52V2.5h.25a.75.75 0 0 0 0-1.5h-4.5a.75.75 0 0 0 0 1.5H6v3.02L1.46 12.44A1.875 1.875 0 0 0 3.281 15h9.438a1.875 1.875 0 0 0 1.821-2.56zm-2.57.06H4.03L8 6.22l3.97 6.28z"/>',
+  // CSS — "#" / paint brush placeholder
+  css:  '<path d="M.854 10.146a.5.5 0 0 1 0 .708l-3 3a.5.5 0 0 1-.708-.708L.146 10.5.146 10.5 3.146 7.5a.5.5 0 1 1 .708.708L1.207 10.854l2.647 2.646a.5.5 0 0 1 0 .708zm0 0"/><path d="M2 4.75A.75.75 0 0 1 2.75 4h10.5a.75.75 0 0 1 0 1.5H2.75A.75.75 0 0 1 2 4.75zM2 11.25a.75.75 0 0 1 .75-.75h4a.75.75 0 0 1 0 1.5h-4a.75.75 0 0 1-.75-.75zM2 8a.75.75 0 0 1 .75-.75h6.5a.75.75 0 0 1 0 1.5h-6.5A.75.75 0 0 1 2 8z"/>',
+  // HTML — angle brackets
+  html: '<path d="M4.72 3.22a.75.75 0 0 1 1.06 1.06L2.06 8l3.72 3.72a.75.75 0 1 1-1.06 1.06L.47 8.53a.75.75 0 0 1 0-1.06l4.25-4.25zm6.56 0a.75.75 0 1 0-1.06 1.06L13.94 8l-3.72 3.72a.75.75 0 1 0 1.06 1.06l4.25-4.25a.75.75 0 0 0 0-1.06l-4.25-4.25z"/>',
+  // Generic file — document
+  file: '<path d="M2 1.75C2 .784 2.784 0 3.75 0h6.586c.464 0 .909.184 1.237.513l2.914 2.914c.329.328.513.773.513 1.237v9.586A1.75 1.75 0 0 1 13.25 16h-9.5A1.75 1.75 0 0 1 2 14.25Zm1.75-.25a.25.25 0 0 0-.25.25v12.5c0 .138.112.25.25.25h9.5a.25.25 0 0 0 .25-.25V6h-2.75A1.75 1.75 0 0 1 9 4.25V1.5Zm6.75.062V4.25c0 .138.112.25.25.25h2.688l-.011-.013-2.914-2.914-.013-.011Z"/>',
+};
+
+/**
+ * Classifies a file by name into one of the `FileIconKey` categories.
+ * Logic is based entirely on static names/extensions — no user data enters SVG markup.
+ *
+ * @param name - Display name of the file (last path segment, e.g. "api.ts")
+ * @returns    - FileIconKey used to select the SVG path and CSS colour class
+ */
+function getFileIconKey(name: string): Exclude<FileIconKey, 'dir'> {
+  const lower = name.toLowerCase();
+
+  // Lock files (exact names)
+  if (
+    lower === 'package-lock.json' ||
+    lower === 'yarn.lock' ||
+    lower === 'pnpm-lock.yaml' ||
+    lower === 'composer.lock' ||
+    lower === 'gemfile.lock' ||
+    lower === 'poetry.lock'
+  ) return 'lock';
+
+  // Test / spec files (name contains .test. / .spec. / __tests__)
+  if (/\.(test|spec)\.[a-z]+$/.test(lower) || lower.includes('__tests__')) return 'test';
+
+  const ext = lower.slice(lower.lastIndexOf('.') + 1);
+
+  switch (ext) {
+    case 'ts':
+    case 'tsx':
+    case 'mts':
+    case 'cts':
+      return 'ts';
+    case 'js':
+    case 'jsx':
+    case 'mjs':
+    case 'cjs':
+      return 'js';
+    case 'json':
+    case 'jsonc':
+    case 'json5':
+      return 'json';
+    case 'md':
+    case 'mdx':
+    case 'markdown':
+      return 'md';
+    case 'yml':
+    case 'yaml':
+      return 'yaml';
+    case 'png':
+    case 'jpg':
+    case 'jpeg':
+    case 'gif':
+    case 'webp':
+    case 'ico':
+    case 'svg':
+    case 'avif':
+      return 'image';
+    case 'css':
+    case 'scss':
+    case 'sass':
+    case 'less':
+      return 'css';
+    case 'html':
+    case 'htm':
+      return 'html';
+    default:
+      return 'file';
+  }
+}
+
+/**
+ * Returns a complete SVG string for the given icon key, ready for `innerHTML`.
+ * The returned string is static — it contains no user-supplied values.
+ *
+ * @param key - Icon category
+ * @returns   - Full SVG element string with the appropriate CSS class
+ */
+function getIconSvg(key: FileIconKey): string {
+  const cls = key === 'dir' ? `${PREFIX}-icon-dir` : `${PREFIX}-icon-file ${PREFIX}-icon-file--${key}`;
+  return `<svg class="${cls}" width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">${FILE_ICON_SVG_PATHS[key]}</svg>`;
+}
+
 // ─── Sidebar Shell ────────────────────────────────────────────────────────────
 
 /**
@@ -238,16 +371,10 @@ export function createSidebar(
     </div>
     <div class="${PREFIX}-header-actions">
       <button class="${PREFIX}-expand-btn" aria-label="Expand all directories" title="Expand all">
-        <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
-          <path d="M3.5 3.5L8 7.5L12.5 3.5z"/>
-          <path d="M3.5 8.5L8 12.5L12.5 8.5z"/>
-        </svg>
+        <span aria-hidden="true">+</span>
       </button>
       <button class="${PREFIX}-collapse-btn" aria-label="Collapse all directories" title="Collapse all">
-        <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
-          <path d="M3.5 12.5L8 8.5L12.5 12.5z"/>
-          <path d="M3.5 7.5L8 3.5L12.5 7.5z"/>
-        </svg>
+        <span aria-hidden="true">−</span>
       </button>
       <button class="${PREFIX}-settings-btn" aria-label="Token settings" title="Token settings" aria-pressed="false">
         <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
@@ -494,9 +621,7 @@ function renderTreeItems(
              fill="currentColor" aria-hidden="true">
           <path d="M4.7 10c-.2 0-.4-.1-.5-.2-.3-.3-.3-.8 0-1.1L6.9 6 4.2 3.3c-.3-.3-.3-.8 0-1.1.3-.3.8-.3 1.1 0l3.3 3.2c.3.3.3.8 0 1.1L5.3 9.8c-.2.1-.4.2-.6.2Z"/>
         </svg>
-        <svg class="${PREFIX}-icon-dir" width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
-          <path d="M1.75 1A1.75 1.75 0 0 0 0 2.75v10.5C0 14.216.784 15 1.75 15h12.5A1.75 1.75 0 0 0 16 13.25v-8.5A1.75 1.75 0 0 0 14.25 3H7.5a.25.25 0 0 1-.2-.1l-.9-1.2C6.07 1.26 5.55 1 5 1H1.75Z"/>
-        </svg>
+        ${getIconSvg('dir')}
         <span class="${PREFIX}-item-name">${filterQuery ? highlightMatch(item.name, filterQuery) : escapeHtml(item.name)}</span>
       `;
       btn.addEventListener('click', () => onToggleDir(item.fullPath));
@@ -525,10 +650,9 @@ function renderTreeItems(
         anchor.classList.add(`${PREFIX}-file-link--active`);
         li.setAttribute('aria-current', 'page');
       }
+      const iconKey = getFileIconKey(item.name);
       anchor.innerHTML = /* html */ `
-        <svg class="${PREFIX}-icon-file" width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
-          <path d="M2 1.75C2 .784 2.784 0 3.75 0h6.586c.464 0 .909.184 1.237.513l2.914 2.914c.329.328.513.773.513 1.237v9.586A1.75 1.75 0 0 1 13.25 16h-9.5A1.75 1.75 0 0 1 2 14.25Zm1.75-.25a.25.25 0 0 0-.25.25v12.5c0 .138.112.25.25.25h9.5a.25.25 0 0 0 .25-.25V6h-2.75A1.75 1.75 0 0 1 9 4.25V1.5Zm6.75.062V4.25c0 .138.112.25.25.25h2.688l-.011-.013-2.914-2.914-.013-.011Z"/>
-        </svg>
+        ${getIconSvg(iconKey)}
         <span class="${PREFIX}-item-name">${filterQuery ? highlightMatch(item.name, filterQuery) : escapeHtml(item.name)}</span>
       `;
       // Let the browser/Turbo Drive navigate naturally; just record the active path

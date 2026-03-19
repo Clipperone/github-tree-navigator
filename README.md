@@ -9,6 +9,7 @@
 ## Features
 
 - **🌲 Instant file tree** — fetches the full recursive repository tree in a single API call and renders it as a collapsible hierarchy without touching the page DOM.
+- **🎨 File-type icons** — every node in the tree displays a colour-coded icon based on its extension or well-known filename. Directories are distinguished at a glance with a folder icon (sky blue); files use type-specific colours: TypeScript (blue), JavaScript (yellow), JSON (purple), Markdown (accent blue), YAML (orange), images (green), lockfiles (red), test/spec files (purple), CSS/SCSS (pink), HTML (orange-red), with a neutral grey fallback for all other types. All colours are expressed via GitHub's `--color-*` CSS custom properties, so dark and light themes are supported automatically. No external icon library is used — icons are inline SVG paths bundled directly in `ui.ts`.
 - **🔍 Live search / filter** — type to narrow the tree to matching files; matched substrings are highlighted and ancestor directories are auto-expanded automatically.
 - **🔑 Personal Access Token** — store a GitHub PAT once via the settings panel; it is saved in `chrome.storage.local` (browser-local only, never sent anywhere except the GitHub API). Raises the rate limit from 60 to 5 000 requests/hr and enables private-repository access.
 - **↔ Resizable sidebar** — drag the right edge to any width between 180 px and 600 px; the chosen width is persisted across sessions via `chrome.storage.local`.
