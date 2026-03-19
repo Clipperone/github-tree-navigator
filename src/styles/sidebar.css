@@ -270,6 +270,9 @@ body.gtn-body--sidebar-pinned {
   border-radius: 6px;
   background: transparent;
   color: var(--color-fg-muted, #656d76);
+  font-size: 16px;
+  font-weight: 400;
+  line-height: 1;
   cursor: pointer;
   transition: color 120ms ease, background-color 120ms ease;
   outline-offset: 1px;
@@ -683,8 +686,69 @@ body.gtn-body--sidebar-pinned {
   color: #2c8fc4; /* darker sky blue */
 }
 
+/* Base file icon — colour overridden by type modifier below */
 .gtn-icon-file {
   flex-shrink: 0;
+  color: var(--color-fg-muted, #656d76);
+}
+
+/* ─── Per-type file icon colours ────────────────────────────────────────────
+   All values are GitHub CSS token fallbacks so dark/light mode is automatic. */
+
+/* TypeScript — Microsoft blue */
+.gtn-icon-file--ts {
+  color: #3178c6;
+}
+
+/* JavaScript — yellow */
+.gtn-icon-file--js {
+  color: #f0db4f;
+  /* Yellow on a light bg can be hard to read; darken slightly */
+  filter: brightness(0.88);
+}
+
+/* JSON — teal / cyan */
+.gtn-icon-file--json {
+  color: var(--color-done-fg, #8250df);
+}
+
+/* Markdown — blue */
+.gtn-icon-file--md {
+  color: var(--color-accent-fg, #0969da);
+}
+
+/* YAML / config — orange */
+.gtn-icon-file--yaml {
+  color: var(--color-attention-fg, #9a6700);
+}
+
+/* Images — green */
+.gtn-icon-file--image {
+  color: var(--color-success-fg, #1a7f37);
+}
+
+/* Lock files — red / danger */
+.gtn-icon-file--lock {
+  color: var(--color-danger-fg, #cf222e);
+}
+
+/* Test / spec — purple */
+.gtn-icon-file--test {
+  color: var(--color-done-fg, #8250df);
+}
+
+/* CSS / SCSS — pink */
+.gtn-icon-file--css {
+  color: #e069b3;
+}
+
+/* HTML — orange-red */
+.gtn-icon-file--html {
+  color: #e34c26;
+}
+
+/* Generic fallback — muted */
+.gtn-icon-file--file {
   color: var(--color-fg-muted, #656d76);
 }
 
