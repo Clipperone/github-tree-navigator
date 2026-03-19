@@ -115,6 +115,25 @@ export function subscribe(fn: StateSubscriber): () => void {
 }
 
 /**
+ * Expands all directories by replacing expandedPaths with a Set
+ * constructed from every provided directory path.
+ * Called by content_script when the user clicks "Expand All".
+ *
+ * @param dirPaths - All directory paths in the current repository tree
+ */
+export function expandAllDirs(dirPaths: readonly string[]): void {
+  setState({ expandedPaths: new Set(dirPaths) });
+}
+
+/**
+ * Collapses all directories by clearing expandedPaths.
+ * Called by content_script when the user clicks "Collapse All".
+ */
+export function collapseAllDirs(): void {
+  setState({ expandedPaths: new Set() });
+}
+
+/**
  * Resets all state to initial values.
  * Called when navigating between pages to discard stale data.
  */

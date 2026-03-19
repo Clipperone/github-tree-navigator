@@ -118,7 +118,7 @@ body.gtn-body--sidebar-pinned {
   left: 0;
   bottom: 0;
   z-index: 9998;
-  width: 300px;
+  width: var(--gtn-sidebar-width, 300px);
   display: flex;
   flex-direction: column;
   border-right: 1px solid var(--color-border-default, #d0d7de);
@@ -133,6 +133,34 @@ body.gtn-body--sidebar-pinned {
 
 #gtn-sidebar.gtn-sidebar--open {
   transform: translateX(0);
+}
+
+/* ─── Resize Handle ─────────────────────────────────────────────────────── */
+
+.gtn-resize-handle {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 6px;
+  cursor: col-resize;
+  z-index: 10;
+  /* Ensure the handle is a pointer-events target even when sidebar overflows */
+  flex-shrink: 0;
+}
+
+.gtn-resize-handle::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-right: 3px solid var(--color-accent-fg, #0969da);
+  opacity: 0;
+  transition: opacity 150ms ease;
+}
+
+.gtn-resize-handle:hover::after,
+.gtn-resize-handle--resizing::after {
+  opacity: 0.5;
 }
 
 /* ─── Sidebar Header ─────────────────────────────────────────────────────── */
@@ -225,6 +253,49 @@ body.gtn-body--sidebar-pinned {
 .gtn-settings-btn--active:hover {
   color: var(--color-accent-fg, #0969da);
   background: var(--color-accent-muted, rgba(9, 105, 218, 0.2));
+}
+
+/* ─── Expand / Collapse All Buttons ─────────────────────────────────────── */
+
+.gtn-expand-btn,
+.gtn-collapse-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--color-fg-muted, #656d76);
+  cursor: pointer;
+  transition: color 120ms ease, background-color 120ms ease;
+  outline-offset: 1px;
+}
+
+.gtn-expand-btn:hover,
+.gtn-collapse-btn:hover {
+  color: var(--color-fg-default, #1f2328);
+  background: var(--color-neutral-muted, rgba(175, 184, 193, 0.2));
+}
+
+.gtn-expand-btn:focus-visible,
+.gtn-collapse-btn:focus-visible {
+  outline: 2px solid var(--color-accent-fg, #0969da);
+}
+
+.gtn-expand-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+/* When tree has not loaded yet, hide both buttons to avoid flicker */
+.gtn-expand-btn[hidden],
+.gtn-collapse-btn[hidden] {
+  display: none;
 }
 
 /* ─── Settings Panel ─────────────────────────────────────────────────────── */
@@ -510,9 +581,6 @@ body.gtn-body--sidebar-pinned {
   border-radius: 2px;
   padding: 0 1px;
   font: inherit;
-}
-  text-align: center;
-  margin: 0;
 }
 
 /* ─── Tree Lists ────────────────────────────────────────────────────────── */

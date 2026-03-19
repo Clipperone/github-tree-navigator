@@ -190,6 +190,8 @@ export function createToggleButton(onToggle: () => void): { wrapper: HTMLDivElem
  * @param onSettingsToggle - Callback invoked when the settings gear button is clicked
  * @param onSaveToken      - Callback invoked when the user saves a PAT
  * @param onRemoveToken    - Callback invoked when the user removes the stored PAT
+ * @param onExpandAll      - Callback invoked when the "Expand All" button is clicked
+ * @param onCollapseAll    - Callback invoked when the "Collapse All" button is clicked
  * @param repoInfo         - Initial repository context for the header
  * @returns                - Object with the root `sidebar` element and mutable `content` container
  */
@@ -200,6 +202,8 @@ export function createSidebar(
   onSettingsToggle: () => void,
   onSaveToken: (token: string) => void,
   onRemoveToken: () => void,
+  onExpandAll: () => void,
+  onCollapseAll: () => void,
   repoInfo: RepoInfo,
 ): {
   sidebar: HTMLElement;
@@ -233,6 +237,18 @@ export function createSidebar(
       </span>
     </div>
     <div class="${PREFIX}-header-actions">
+      <button class="${PREFIX}-expand-btn" aria-label="Expand all directories" title="Expand all">
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+          <path d="M3.5 3.5L8 7.5L12.5 3.5z"/>
+          <path d="M3.5 8.5L8 12.5L12.5 8.5z"/>
+        </svg>
+      </button>
+      <button class="${PREFIX}-collapse-btn" aria-label="Collapse all directories" title="Collapse all">
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+          <path d="M3.5 12.5L8 8.5L12.5 12.5z"/>
+          <path d="M3.5 7.5L8 3.5L12.5 7.5z"/>
+        </svg>
+      </button>
       <button class="${PREFIX}-settings-btn" aria-label="Token settings" title="Token settings" aria-pressed="false">
         <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
           <path d="M8 4.754a3.246 3.246 0 1 0 0 6.492 3.246 3.246 0 0 0 0-6.492M5.754 8a2.246 2.246 0 1 1 4.492 0 2.246 2.246 0 0 1-4.492 0"/>
@@ -262,6 +278,10 @@ export function createSidebar(
   pinButton.addEventListener('click', onPin);
   const settingsButton = header.querySelector<HTMLButtonElement>(`.${PREFIX}-settings-btn`)!;
   settingsButton.addEventListener('click', onSettingsToggle);
+  header.querySelector<HTMLButtonElement>(`.${PREFIX}-expand-btn`)!
+    .addEventListener('click', onExpandAll);
+  header.querySelector<HTMLButtonElement>(`.${PREFIX}-collapse-btn`)!
+    .addEventListener('click', onCollapseAll);
 
   // ── Settings panel ──
   const settingsPanel = document.createElement('div');
@@ -586,6 +606,94 @@ export function setTokenStatus(sidebar: HTMLElement, hasToken: boolean): void {
   const removeBtn = sidebar.querySelector<HTMLButtonElement>(`.${PREFIX}-pat-remove-btn`);
   if (status) status.hidden = !hasToken;
   if (removeBtn) removeBtn.hidden = !hasToken;
+}
+
+/**
+ * Enables or disables the "Expand All" button.
+ * Called by content_script after the tree loads or changes, based on the
+ * directory count safety threshold.
+ *
+ * @param sidebar  - The sidebar `<aside>` element
+ * @param enabled  - False when the dir count exceeds the safety limit
+ */
+export function setExpandAllEnabled(sidebar: HTMLElement, enabled: boolean): void {
+  const btn = sidebar.querySelector<HTMLButtonElement>(`.${PREFIX}-expand-btn`);
+  if (!btn) return;
+  btn.disabled = !enabled;
+  btn.title = enabled ? 'Expand all' : 'Too many directories — expand disabled';
+  btn.setAttribute('aria-label', enabled ? 'Expand all directories' : 'Expand all (disabled — too many directories)');
+}
+
+// ─── Resize Handle ───────────────────────────────────────────────────────────
+
+/** Minimum and maximum allowed sidebar widths in pixels. */
+const RESIZE_MIN_WIDTH = 180;
+const RESIZE_MAX_WIDTH = 600;
+
+/**
+ * Appends a drag handle to the sidebar's right edge and wires up pointer-event
+ * listeners so the user can resize the sidebar horizontally.
+ *
+ * Live width changes are applied immediately via the `--gtn-sidebar-width` CSS
+ * custom property on the sidebar element. The two callbacks let the caller
+ * persist and propagate the new value without coupling ui.ts to storage or state.
+ *
+ * @param sidebar      - The sidebar `<aside>` element to attach the handle to
+ * @param onResize     - Called on every pointermove with the current width (px)
+ * @param onResizeEnd  - Called once on pointerup / pointercancel with the final width (px)
+ */
+export function attachResizeHandle(
+  sidebar: HTMLElement,
+  onResize: (width: number) => void,
+  onResizeEnd: (width: number) => void,
+): void {
+  const handle = document.createElement('div');
+  handle.className = `${PREFIX}-resize-handle`;
+  handle.setAttribute('aria-hidden', 'true');
+
+  handle.addEventListener('pointerdown', (e: PointerEvent) => {
+    // Only respond to primary button / touch
+    if (e.button !== 0 && e.pointerType === 'mouse') return;
+
+    e.preventDefault(); // Prevent text selection and touch scrolling during drag
+    handle.setPointerCapture(e.pointerId);
+
+    const startX = e.clientX;
+    const startWidth = sidebar.getBoundingClientRect().width;
+
+    handle.classList.add(`${PREFIX}-resize-handle--resizing`);
+    // Override cursor globally so it stays col-resize even when the pointer
+    // moves outside the handle while dragging.
+    document.documentElement.style.setProperty('cursor', 'col-resize', 'important');
+    document.documentElement.style.setProperty('user-select', 'none', 'important');
+
+    function clampWidth(clientX: number): number {
+      return Math.min(RESIZE_MAX_WIDTH, Math.max(RESIZE_MIN_WIDTH, startWidth + (clientX - startX)));
+    }
+
+    function onPointerMove(ev: PointerEvent): void {
+      const w = clampWidth(ev.clientX);
+      sidebar.style.setProperty('--gtn-sidebar-width', `${w}px`);
+      onResize(w);
+    }
+
+    function onPointerEnd(ev: PointerEvent): void {
+      handle.releasePointerCapture(ev.pointerId);
+      handle.classList.remove(`${PREFIX}-resize-handle--resizing`);
+      document.documentElement.style.removeProperty('cursor');
+      document.documentElement.style.removeProperty('user-select');
+      handle.removeEventListener('pointermove', onPointerMove);
+      handle.removeEventListener('pointerup', onPointerEnd);
+      handle.removeEventListener('pointercancel', onPointerEnd);
+      onResizeEnd(clampWidth(ev.clientX));
+    }
+
+    handle.addEventListener('pointermove', onPointerMove);
+    handle.addEventListener('pointerup', onPointerEnd);
+    handle.addEventListener('pointercancel', onPointerEnd);
+  });
+
+  sidebar.appendChild(handle);
 }
 
 // ─── Security Utility ────────────────────────────────────────────────────────

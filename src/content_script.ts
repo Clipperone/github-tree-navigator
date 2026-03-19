@@ -28,9 +28,11 @@ import {
   updateSidebarHeader,
   setSettingsPanelOpen,
   setTokenStatus,
+  setExpandAllEnabled,
+  attachResizeHandle,
   PREFIX,
 } from './ui';
-import { getState, setState, subscribe, resetState } from './state';
+import { getState, setState, subscribe, resetState, expandAllDirs, collapseAllDirs } from './state';
 
 // ─── Element ID Constants ────────────────────────────────────────────────────
 
@@ -39,6 +41,16 @@ const SIDEBAR_ID = `${PREFIX}-sidebar`;
 const STORAGE_KEY_PINNED    = 'gtn-pinned';
 const STORAGE_KEY_EXPANDED  = 'gtn-expanded-paths';
 const STORAGE_KEY_TOKEN     = 'gtn-auth-token';
+const STORAGE_KEY_WIDTH     = 'gtn-sidebar-width';
+const SESSION_KEY_WIDTH     = 'gtn-sidebar-width';
+
+/** Maximum number of directories before Expand All is disabled (DOM-freeze safeguard). */
+const EXPAND_ALL_DIR_LIMIT = 500;
+
+/** Default sidebar width in pixels. */
+const DEFAULT_SIDEBAR_WIDTH = 300;
+/** Persisted sidebar width, loaded at startup and updated on resize. */
+let _sidebarWidth = DEFAULT_SIDEBAR_WIDTH;
 
 // ─── SessionStorage helpers ──────────────────────────────────────────────────
 
@@ -70,6 +82,21 @@ async function loadStoredToken(): Promise<void> {
   }
 }
 
+// ─── Sidebar Width Storage ───────────────────────────────────────────────────
+
+/**
+ * Reads the persisted sidebar width from chrome.storage.local.
+ * Returns `DEFAULT_SIDEBAR_WIDTH` when no valid value is found.
+ */
+async function loadStoredWidth(): Promise<number> {
+  try {
+    const result = await chrome.storage.local.get(STORAGE_KEY_WIDTH);
+    const raw = result[STORAGE_KEY_WIDTH];
+    if (typeof raw === 'number' && raw >= 180 && raw <= 600) return raw;
+  } catch { /* ignore */ }
+  return DEFAULT_SIDEBAR_WIDTH;
+}
+
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 /**
@@ -82,7 +109,7 @@ async function loadStoredToken(): Promise<void> {
 function applyPinnedBodyStyle(pinned: boolean): void {
   if (pinned) {
     document.body.classList.add('gtn-body--sidebar-pinned');
-    document.body.style.setProperty('margin-left', '300px', 'important');
+    document.body.style.setProperty('margin-left', `${_sidebarWidth}px`, 'important');
   } else {
     document.body.classList.remove('gtn-body--sidebar-pinned');
     document.body.style.removeProperty('margin-left');
@@ -114,8 +141,13 @@ function mount(): void {
   const { sidebar, content, pinButton } = createSidebar(
     handleClose, handlePin, handleSearch,
     handleSettingsToggle, handleSaveToken, handleRemoveToken,
+    handleExpandAll, handleCollapseAll,
     repoInfo,
   );
+
+  // Apply the persisted width before the sidebar is shown to avoid a flash
+  sidebar.style.setProperty('--gtn-sidebar-width', `${_sidebarWidth}px`);
+  attachResizeHandle(sidebar, handleResizeMove, handleResizeEnd);
 
   document.body.appendChild(toggleWrapper);
   document.body.appendChild(sidebar);
@@ -170,6 +202,9 @@ function mount(): void {
     } else if (s.error !== null) {
       renderError(content, s.error);
     } else if (s.treeNodes.length > 0 && s.repoInfo !== null) {
+      // Update expand-all safeguard whenever treeNodes change
+      const dirCount = s.treeNodes.filter((n) => n.type === 'tree').length;
+      setExpandAllEnabled(sidebar, dirCount <= EXPAND_ALL_DIR_LIMIT);
       renderTree(
         content,
         s.treeNodes,
@@ -261,6 +296,23 @@ function handleClose(): void {
   setState({ sidebarOpen: false, pinned: false });
 }
 
+/**
+ * Expands all directories in the current tree.
+ * The button is disabled by the subscriber when the dir count exceeds
+ * EXPAND_ALL_DIR_LIMIT, so this handler can trust the call is safe.
+ */
+function handleExpandAll(): void {
+  const dirPaths = getState().treeNodes
+    .filter((n) => n.type === 'tree')
+    .map((n) => n.path);
+  expandAllDirs(dirPaths);
+}
+
+/** Collapses all directories — always safe, no threshold needed. */
+function handleCollapseAll(): void {
+  collapseAllDirs();
+}
+
 /** Toggles the pinned state; pins always open the sidebar. */
 function handlePin(): void {
   cancelHoverClose();
@@ -320,6 +372,33 @@ function handleToggleDir(path: string): void {
  */
 function handleFileClick(path: string, _url: string): void {
   setState({ activePath: path });
+}
+
+/**
+ * Called on every pointermove during a sidebar resize.
+ * Updates the body margin in real-time when the sidebar is pinned.
+ *
+ * @param width - Current sidebar width in pixels
+ */
+function handleResizeMove(width: number): void {
+  _sidebarWidth = width;
+  if (getState().pinned) {
+    document.body.style.setProperty('margin-left', `${width}px`, 'important');
+  }
+}
+
+/**
+ * Called once when the user releases the resize handle.
+ * Persists the chosen width to chrome.storage.local and sessionStorage.
+ *
+ * @param width - Final sidebar width in pixels
+ */
+async function handleResizeEnd(width: number): Promise<void> {
+  _sidebarWidth = width;
+  try {
+    await chrome.storage.local.set({ [STORAGE_KEY_WIDTH]: width });
+    sessionStorage.setItem(SESSION_KEY_WIDTH, String(width));
+  } catch { /* storage unavailable */ }
 }
 
 // ─── Data Loading ─────────────────────────────────────────────────────────────
@@ -418,7 +497,7 @@ document.addEventListener('turbo:before-render', (event: Event) => {
   const newBody = detail?.newBody;
   if (!newBody) return;
   newBody.classList.add('gtn-body--sidebar-pinned');
-  newBody.style.setProperty('margin-left', '300px', 'important');
+  newBody.style.setProperty('margin-left', `${_sidebarWidth}px`, 'important');
 });
 
 // Restore persisted UI state, load the stored PAT, then mount the sidebar.
@@ -436,8 +515,11 @@ void (async () => {
     });
   } catch { /* sessionStorage unavailable — start with defaults */ }
 
-  // Load PAT before mounting so the token indicator reflects the stored state.
+  // Load PAT and sidebar width from chrome.storage.local before mounting.
   await loadStoredToken();
+  _sidebarWidth = await loadStoredWidth();
+  // Mirror to sessionStorage so inject_start.ts can use it on the next page load
+  try { sessionStorage.setItem(SESSION_KEY_WIDTH, String(_sidebarWidth)); } catch { /* ignore */ }
 
   // Initial mount when the content script first runs
   mount();

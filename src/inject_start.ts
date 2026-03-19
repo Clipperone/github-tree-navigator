@@ -14,13 +14,17 @@
 
 const STORAGE_KEY_PINNED = 'gtn-pinned';
 const START_STYLE_ID     = 'gtn-pinned-start';
+const SESSION_KEY_WIDTH  = 'gtn-sidebar-width';
 
 try {
   if (sessionStorage.getItem(STORAGE_KEY_PINNED) === 'true') {
+    const rawW = sessionStorage.getItem(SESSION_KEY_WIDTH);
+    const parsedW = rawW !== null ? parseInt(rawW, 10) : NaN;
+    const w = !isNaN(parsedW) && parsedW >= 180 && parsedW <= 600 ? parsedW : 300;
     const style = document.createElement('style');
     style.id = START_STYLE_ID;
     // Same value as .gtn-body--sidebar-pinned in sidebar.css
-    style.textContent = 'body { margin-left: 300px !important; }';
+    style.textContent = `body { margin-left: ${w}px !important; }`;
     // <html> always exists at document_start; <head> and <body> do not yet
     document.documentElement.appendChild(style);
   }
