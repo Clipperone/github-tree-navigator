@@ -32,6 +32,7 @@ no backend, no account required.
 | 📦 **Large repo fallback** | If GitHub truncates the full recursive tree, the sidebar transparently switches to lazy directory loading instead of breaking. |
 | 🔑 **Private repo support** | Store a GitHub Personal Access Token once via the settings panel; raises the rate limit from 60 to 5 000 req/hr and unlocks private repositories. |
 | 🎨 **File-type icons** | Colour-coded icons for TypeScript, JavaScript, JSON, Markdown, YAML, images, test files, CSS, HTML, and more — inline SVG, no icon library needed. |
+| ⌨️ **Keyboard navigation** | Open the sidebar with `Alt+\`, jump to search with `/`, and move through the tree with the arrow keys. |
 | ↔ **Resizable sidebar** | Drag the right edge to any width between 180 px and 600 px; your preference persists across sessions. |
 | 📌 **Pin mode** | Pin the sidebar open while navigating, or let it auto-hide when your cursor leaves. |
 | ⬇⬆ **Expand / Collapse All** | One-click expand or collapse of the entire directory tree (auto-disabled for repos with > 500 directories). |

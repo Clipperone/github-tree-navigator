@@ -19,6 +19,7 @@
 - **⚡ Zero layout-shift** — a `document_start` injection script reads the persisted sidebar width and applies the body margin before the first paint, eliminating the content-shift flash on pinned reloads.
 - **🌗 Dark / light mode** — all colours use GitHub's own `--color-*` CSS custom properties, so the sidebar follows GitHub's theme automatically.
 - **♿ Accessible** — ARIA roles, labels, and `aria-live` regions on every interactive element.
+- **⌨️ Keyboard navigation** — use `Alt+\` to open/focus the sidebar, `/` to focus search, arrow keys to move through the tree, `Enter`/`Space` to activate items, and `Escape` to exit the current sidebar mode.
 
 ---
 
@@ -166,3 +167,18 @@ Use this before releasing changes:
 7. Save and remove a PAT; confirm token status updates and private-repo access works when applicable.
 8. Navigate within the same repo via GitHub SPA navigation and confirm the sidebar stays mounted and in sync.
 9. Open a pull request and confirm the sidebar shows only changed files, then click a file and verify it lands in the PR `Files changed` view.
+10. Press `Alt+\` and confirm the sidebar opens with focus in the search field.
+11. With focus inside the tree, use `ArrowUp`, `ArrowDown`, `ArrowLeft`, `ArrowRight`, `Enter`, and `Space` to navigate and expand/collapse without using the mouse.
+12. Press `/` to focus search and `Escape` to clear search, close settings, or close the sidebar as appropriate.
+
+## Keyboard Shortcuts
+
+- `Alt+\` — open the sidebar and focus search
+- `/` — focus the sidebar search when the sidebar is open
+- `ArrowUp` / `ArrowDown` — move between visible tree rows
+- `ArrowRight` — expand a directory, or move into its first child if already expanded
+- `ArrowLeft` — collapse an expanded directory, or move to its parent
+- `Enter` — open the focused file or toggle the focused directory
+- `Space` — toggle the focused directory
+- `Home` / `End` — jump to the first / last visible tree row
+- `Escape` — clear search, close settings, or close the sidebar

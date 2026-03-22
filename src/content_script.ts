@@ -50,6 +50,9 @@ const STORAGE_KEY_EXPANDED  = 'gtn-expanded-paths';
 const STORAGE_KEY_TOKEN     = 'gtn-auth-token';
 const STORAGE_KEY_WIDTH     = 'gtn-sidebar-width';
 const SESSION_KEY_WIDTH     = 'gtn-sidebar-width';
+const TREE_ITEM_SELECTOR = `.${PREFIX}-dir-btn, .${PREFIX}-file-link`;
+const SEARCH_INPUT_SELECTOR = `#${SIDEBAR_ID} .${PREFIX}-search-input`;
+const SETTINGS_PANEL_SELECTOR = `#${SIDEBAR_ID} .${PREFIX}-settings-panel`;
 
 /** Maximum number of directories before Expand All is disabled (DOM-freeze safeguard). */
 const EXPAND_ALL_DIR_LIMIT = 500;
@@ -58,6 +61,8 @@ const EXPAND_ALL_DIR_LIMIT = 500;
 const DEFAULT_SIDEBAR_WIDTH = 300;
 /** Persisted sidebar width, loaded at startup and updated on resize. */
 let _sidebarWidth = DEFAULT_SIDEBAR_WIDTH;
+let _focusedTreePath: string | null = null;
+let _pendingTreeFocusPath: string | null = null;
 
 // ─── SessionStorage helpers ──────────────────────────────────────────────────
 
@@ -85,6 +90,246 @@ function mergeTreeNodes(existing: readonly TreeNode[], incoming: readonly TreeNo
   }
 
   return Array.from(byPath.values());
+}
+
+function isEditableTarget(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) return false;
+  return (
+    target instanceof HTMLInputElement ||
+    target instanceof HTMLTextAreaElement ||
+    target.isContentEditable ||
+    target.closest('[contenteditable="true"]') !== null
+  );
+}
+
+function getSidebarElement(): HTMLElement | null {
+  return document.getElementById(SIDEBAR_ID);
+}
+
+function getSearchInput(): HTMLInputElement | null {
+  return document.querySelector<HTMLInputElement>(SEARCH_INPUT_SELECTOR);
+}
+
+function getVisibleTreeItems(sidebar: HTMLElement): HTMLElement[] {
+  return Array.from(sidebar.querySelectorAll<HTMLElement>(TREE_ITEM_SELECTOR));
+}
+
+function getTreePathFromElement(element: HTMLElement | null): string | null {
+  return element?.closest<HTMLElement>(`.${PREFIX}-tree-item`)?.dataset['path'] ?? null;
+}
+
+function focusSearchInput(selectContents = false): void {
+  const searchInput = getSearchInput();
+  if (!searchInput) return;
+  searchInput.focus();
+  if (selectContents) {
+    searchInput.select();
+  }
+}
+
+function focusTreeItemByPath(sidebar: HTMLElement, path: string | null): boolean {
+  if (path === null) return false;
+  const item = sidebar.querySelector<HTMLElement>(`.${PREFIX}-tree-item[data-path="${CSS.escape(path)}"] ${TREE_ITEM_SELECTOR}`);
+  if (!item) return false;
+  item.focus();
+  item.scrollIntoView({ block: 'nearest' });
+  return true;
+}
+
+function focusFirstTreeItem(sidebar: HTMLElement): boolean {
+  const first = getVisibleTreeItems(sidebar)[0];
+  if (!first) return false;
+  first.focus();
+  first.scrollIntoView({ block: 'nearest' });
+  _focusedTreePath = getTreePathFromElement(first);
+  return true;
+}
+
+function restoreTreeFocus(sidebar: HTMLElement): void {
+  const activeElement = document.activeElement;
+  const shouldRestore =
+    _pendingTreeFocusPath !== null ||
+    (activeElement instanceof HTMLElement && activeElement.matches(TREE_ITEM_SELECTOR));
+  if (!shouldRestore) return;
+
+  const targetPath = _pendingTreeFocusPath ?? _focusedTreePath;
+  _pendingTreeFocusPath = null;
+
+  if (focusTreeItemByPath(sidebar, targetPath)) {
+    _focusedTreePath = targetPath;
+    return;
+  }
+
+  focusFirstTreeItem(sidebar);
+}
+
+function isOpenSidebarShortcut(event: KeyboardEvent): boolean {
+  if (!event.altKey || event.ctrlKey || event.metaKey) return false;
+
+  return (
+    event.code === 'Backslash' ||
+    event.code === 'IntlBackslash' ||
+    event.key === '\\' ||
+    event.key === '|'
+  );
+}
+
+async function openSidebarAndLoadIfNeeded(): Promise<void> {
+  if (!getState().sidebarOpen) {
+    setState({ sidebarOpen: true });
+  }
+  if (!getState().hasLoadedTree) {
+    await loadTree();
+  }
+}
+
+function isSettingsPanelOpen(): boolean {
+  return document.querySelector<HTMLElement>(SETTINGS_PANEL_SELECTOR)
+    ?.classList.contains(`${PREFIX}-settings-panel--open`) === true;
+}
+
+function closeSettingsPanel(): void {
+  const sidebar = getSidebarElement();
+  if (!sidebar) return;
+  setSettingsPanelOpen(sidebar, false);
+}
+
+function getParentTreeItemElement(element: HTMLElement): HTMLElement | null {
+  const currentItem = element.closest<HTMLElement>(`.${PREFIX}-tree-item`);
+  const parentSubtree = currentItem?.parentElement;
+  if (!(parentSubtree instanceof HTMLUListElement) || !parentSubtree.classList.contains(`${PREFIX}-subtree`)) {
+    return null;
+  }
+  const parentItem = parentSubtree.closest<HTMLElement>(`.${PREFIX}-tree-item`);
+  if (!parentItem) return null;
+  return parentItem.querySelector<HTMLElement>(TREE_ITEM_SELECTOR);
+}
+
+function getChildTreeItemElement(element: HTMLElement): HTMLElement | null {
+  return element.closest<HTMLElement>(`.${PREFIX}-tree-item`)
+    ?.querySelector<HTMLElement>(`.${PREFIX}-subtree ${TREE_ITEM_SELECTOR}`) ?? null;
+}
+
+function handleTreeKeyboardNavigation(event: KeyboardEvent, sidebar: HTMLElement): void {
+  const target = event.target instanceof HTMLElement ? event.target : null;
+  if (!target?.matches(TREE_ITEM_SELECTOR)) return;
+
+  const items = getVisibleTreeItems(sidebar);
+  const currentIndex = items.indexOf(target);
+  if (currentIndex === -1) return;
+
+  const focusItem = (item: HTMLElement | undefined | null): void => {
+    if (!item) return;
+    event.preventDefault();
+    item.focus();
+    item.scrollIntoView({ block: 'nearest' });
+    _focusedTreePath = getTreePathFromElement(item);
+  };
+
+  const currentPath = getTreePathFromElement(target);
+  const currentTreeItem = target.closest<HTMLElement>(`.${PREFIX}-tree-item`);
+  const isDirectory = target.classList.contains(`${PREFIX}-dir-btn`);
+  const isExpanded = currentTreeItem?.getAttribute('aria-expanded') === 'true';
+
+  switch (event.key) {
+    case 'ArrowDown':
+      focusItem(items[currentIndex + 1]);
+      return;
+    case 'ArrowUp':
+      focusItem(items[currentIndex - 1]);
+      return;
+    case 'Home':
+      focusItem(items[0]);
+      return;
+    case 'End':
+      focusItem(items[items.length - 1]);
+      return;
+    case 'ArrowRight':
+      if (!isDirectory) return;
+      event.preventDefault();
+      _pendingTreeFocusPath = currentPath;
+      _focusedTreePath = currentPath;
+      if (!isExpanded && currentPath !== null) {
+        handleToggleDir(currentPath);
+        return;
+      }
+      focusItem(getChildTreeItemElement(target));
+      return;
+    case 'ArrowLeft':
+      if (isDirectory && isExpanded && currentPath !== null) {
+        event.preventDefault();
+        _pendingTreeFocusPath = currentPath;
+        _focusedTreePath = currentPath;
+        handleToggleDir(currentPath);
+        return;
+      }
+      focusItem(getParentTreeItemElement(target));
+      return;
+    case 'Enter':
+      event.preventDefault();
+      if (isDirectory && currentPath !== null) {
+        _pendingTreeFocusPath = currentPath;
+        _focusedTreePath = currentPath;
+        handleToggleDir(currentPath);
+      } else {
+        target.click();
+      }
+      return;
+    case ' ':
+      if (!isDirectory || currentPath === null) return;
+      event.preventDefault();
+      _pendingTreeFocusPath = currentPath;
+      _focusedTreePath = currentPath;
+      handleToggleDir(currentPath);
+      return;
+    default:
+      return;
+  }
+}
+
+async function handleGlobalShortcut(event: KeyboardEvent): Promise<void> {
+  const sidebar = getSidebarElement();
+  const target = event.target;
+
+  if (isOpenSidebarShortcut(event)) {
+    event.preventDefault();
+    await openSidebarAndLoadIfNeeded();
+    focusSearchInput(true);
+    return;
+  }
+
+  if (event.key === '/' && !event.altKey && !event.ctrlKey && !event.metaKey && !event.shiftKey) {
+    if (sidebar === null || !getState().sidebarOpen || isEditableTarget(target)) return;
+    event.preventDefault();
+    focusSearchInput(true);
+    return;
+  }
+
+  if (event.key !== 'Escape' || sidebar === null || !getState().sidebarOpen) return;
+
+  const searchInput = getSearchInput();
+  if (searchInput !== null && document.activeElement === searchInput) {
+    event.preventDefault();
+    if (searchInput.value.length > 0) {
+      searchInput.value = '';
+      handleSearch('');
+    } else if (!focusTreeItemByPath(sidebar, _focusedTreePath)) {
+      searchInput.blur();
+    }
+    return;
+  }
+
+  if (isSettingsPanelOpen()) {
+    event.preventDefault();
+    closeSettingsPanel();
+    focusSearchInput(false);
+    return;
+  }
+
+  if (sidebar.contains(document.activeElement)) {
+    event.preventDefault();
+    handleClose();
+  }
 }
 
 // ─── Token Storage ──────────────────────────────────────────────────────────
@@ -178,6 +423,12 @@ function mount(): void {
   toggleWrapper.addEventListener('mouseleave', scheduleHoverClose);
   sidebar.addEventListener('mouseenter', cancelHoverClose);
   sidebar.addEventListener('mouseleave', scheduleHoverClose);
+  sidebar.addEventListener('keydown', (event) => { handleTreeKeyboardNavigation(event, sidebar); });
+  sidebar.addEventListener('focusin', (event) => {
+    const target = event.target instanceof HTMLElement ? event.target : null;
+    if (!target?.matches(TREE_ITEM_SELECTOR)) return;
+    _focusedTreePath = getTreePathFromElement(target);
+  });
 
   // Sync DOM with any state that survived navigation / page reload
   const initialS = getState();
@@ -244,6 +495,7 @@ function mount(): void {
         handleToggleDir,
         handleFileClick,
       );
+      restoreTreeFocus(sidebar);
     }
   });
 }
@@ -293,6 +545,11 @@ function handleSettingsToggle(): void {
   const isOpen = sidebar.querySelector(`.${PREFIX}-settings-panel`)
     ?.classList.contains(`${PREFIX}-settings-panel--open`) === true;
   setSettingsPanelOpen(sidebar, !isOpen);
+  if (!isOpen) {
+    document.querySelector<HTMLInputElement>(`#${SIDEBAR_ID} .${PREFIX}-pat-input`)?.focus();
+  } else {
+    focusSearchInput(false);
+  }
 }
 
 /** Saves a PAT to chrome.storage.local and refreshes the tree with the new token. */
@@ -339,6 +596,7 @@ async function handleRemoveToken(): Promise<void> {
 function handleClose(): void {
   cancelHoverClose();
   setState({ sidebarOpen: false, pinned: false });
+  document.getElementById(`${PREFIX}-toggle`)?.focus();
 }
 
 /**
@@ -357,6 +615,7 @@ function handleExpandAll(): void {
 /** Collapses all directories — always safe, no threshold needed. */
 function handleCollapseAll(): void {
   collapseAllDirs();
+  _pendingTreeFocusPath = _focusedTreePath;
 }
 
 /** Toggles the pinned state; pins always open the sidebar. */
@@ -401,6 +660,7 @@ function scheduleHoverClose(): void {
  * @param path - Full directory path (e.g. "src/components")
  */
 function handleToggleDir(path: string): void {
+  _focusedTreePath = path;
   const next = new Set(getState().expandedPaths);
   if (next.has(path)) {
     next.delete(path);
@@ -697,6 +957,7 @@ document.addEventListener('turbo:render', handleNavigation);
 // Legacy PJAX fallback (older GitHub versions)
 document.addEventListener('pjax:end', handleNavigation);
 window.addEventListener('hashchange', handleHashChange);
+document.addEventListener('keydown', (event) => { void handleGlobalShortcut(event); });
 
 // Turbo Drive swaps <body> on every navigation, wiping the margin-left class.
 // Pre-apply the class AND an inline style to the INCOMING body before the swap
