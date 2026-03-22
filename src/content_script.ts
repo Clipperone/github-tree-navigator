@@ -17,7 +17,13 @@
  *   state          → (none)
  */
 
-import { parseGitHubUrl, fetchRepoTree, fetchDefaultBranch, parseActiveFilePath } from './api';
+import {
+  parseGitHubUrl,
+  fetchRepoTree,
+  fetchPullRequestFiles,
+  fetchDefaultBranch,
+  parseActiveFilePath,
+} from './api';
 import {
   createToggleButton,
   createSidebar,
@@ -201,7 +207,7 @@ function mount(): void {
       renderLoading(content);
     } else if (s.error !== null) {
       renderError(content, s.error);
-    } else if (s.treeNodes.length > 0 && s.repoInfo !== null) {
+    } else if (s.repoInfo !== null && s.hasLoadedTree) {
       // Update expand-all safeguard whenever treeNodes change
       const dirCount = s.treeNodes.filter((n) => n.type === 'tree').length;
       setExpandAllEnabled(sidebar, dirCount <= EXPAND_ALL_DIR_LIMIT);
@@ -273,7 +279,7 @@ async function handleSaveToken(token: string): Promise<void> {
     _authToken = token;
     const sidebar = document.getElementById(SIDEBAR_ID);
     if (sidebar) setTokenStatus(sidebar, true);
-    setState({ treeNodes: [], error: null });
+    setState({ treeNodes: [], error: null, hasLoadedTree: false });
     if (getState().sidebarOpen) await loadTree();
   } catch { /* chrome.storage unavailable */ }
 }
@@ -285,7 +291,7 @@ async function handleRemoveToken(): Promise<void> {
     _authToken = undefined;
     const sidebar = document.getElementById(SIDEBAR_ID);
     if (sidebar) setTokenStatus(sidebar, false);
-    setState({ treeNodes: [], error: null });
+    setState({ treeNodes: [], error: null, hasLoadedTree: false });
     if (getState().sidebarOpen) await loadTree();
   } catch { /* chrome.storage unavailable */ }
 }
@@ -372,6 +378,9 @@ function handleToggleDir(path: string): void {
  */
 function handleFileClick(path: string, _url: string): void {
   setState({ activePath: path });
+  if (getState().repoInfo?.mode === 'pull-request') {
+    queuePullRequestFileScroll(path);
+  }
 }
 
 /**
@@ -411,7 +420,18 @@ async function loadTree(): Promise<void> {
   let { repoInfo } = getState();
   if (repoInfo === null) return;
 
-  setState({ loading: true, error: null });
+  setState({ loading: true, error: null, hasLoadedTree: false });
+
+  if (repoInfo.mode === 'pull-request') {
+    const result = await fetchPullRequestFiles(repoInfo, _authToken);
+    if (result.ok) {
+      setState({ treeNodes: result.data, loading: false, hasLoadedTree: true });
+      queuePullRequestFileScroll(getState().activePath);
+    } else {
+      setState({ error: result.error, loading: false });
+    }
+    return;
+  }
 
   // Resolve 'HEAD' → actual default branch name for display
   if (repoInfo.ref === 'HEAD') {
@@ -425,10 +445,63 @@ async function loadTree(): Promise<void> {
   const result = await fetchRepoTree(repoInfo, _authToken);
 
   if (result.ok) {
-    setState({ treeNodes: result.data, loading: false });
+    setState({ treeNodes: result.data, loading: false, hasLoadedTree: true });
   } else {
     setState({ error: result.error, loading: false });
   }
+}
+
+/** Returns whether two repo contexts map to the same underlying tree source. */
+function isSameTreeSource(a: ReturnType<typeof getState>['repoInfo'], b: ReturnType<typeof getState>['repoInfo']): boolean {
+  if (a === null || b === null) return false;
+  if (a.owner !== b.owner || a.repo !== b.repo || a.mode !== b.mode) return false;
+  if (a.mode === 'pull-request') return a.prNumber === b.prNumber;
+  return a.ref === b.ref || a.ref === 'HEAD' || b.ref === 'HEAD';
+}
+
+/** Attempts to find the visible PR diff block corresponding to a file path. */
+function findPullRequestFileElement(path: string): HTMLElement | null {
+  const escapedPath = typeof CSS !== 'undefined' ? CSS.escape(path) : path;
+  const selectors = [
+    `[data-path="${escapedPath}"]`,
+    `[data-tagsearch-path="${escapedPath}"]`,
+    `a[title="${escapedPath}"]`,
+    `[title="${escapedPath}"]`,
+  ];
+
+  for (const selector of selectors) {
+    const match = document.querySelector<HTMLElement>(selector);
+    if (match) {
+      return match.closest<HTMLElement>('[data-path], .file, .js-file') ?? match;
+    }
+  }
+
+  for (const node of Array.from(document.querySelectorAll<HTMLElement>('a, span, div'))) {
+    if (node.textContent?.trim() === path) {
+      return node.closest<HTMLElement>('[data-path], .file, .js-file') ?? node;
+    }
+  }
+
+  return null;
+}
+
+/** Briefly highlights a PR file block after sidebar-driven navigation. */
+function flashPullRequestFileElement(target: HTMLElement): void {
+  target.classList.add(`${PREFIX}-pr-target-flash`);
+  window.setTimeout(() => {
+    target.classList.remove(`${PREFIX}-pr-target-flash`);
+  }, 1600);
+}
+
+/** Scrolls a changed-file block into view when a PR file deep-link is active. */
+function queuePullRequestFileScroll(path: string | null): void {
+  if (!path || getState().repoInfo?.mode !== 'pull-request') return;
+  window.setTimeout(() => {
+    const target = findPullRequestFileElement(path);
+    if (!target) return;
+    target.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    flashPullRequestFileElement(target);
+  }, 80);
 }
 
 // ─── SPA Navigation ──────────────────────────────────────────────────────────
@@ -461,29 +534,35 @@ function handleNavigation(): void {
 
   // Elements preserved by Turbo — update state without touching the DOM
   const prevRepoInfo = getState().repoInfo;
-  const sameRepo =
-    prevRepoInfo !== null &&
-    prevRepoInfo.owner === newRepoInfo.owner &&
-    prevRepoInfo.repo  === newRepoInfo.repo;
+  const sameTreeSource = isSameTreeSource(prevRepoInfo, newRepoInfo);
 
   // When navigating within the same repo and the new URL has no explicit branch
   // (parseGitHubUrl returns 'HEAD'), keep the already-resolved branch name so
   // the header never reverts to "HEAD" after the first tree load.
   const effectiveRepoInfo =
-    sameRepo && newRepoInfo.ref === 'HEAD' && prevRepoInfo !== null && prevRepoInfo.ref !== 'HEAD'
+    sameTreeSource && newRepoInfo.mode === 'repo' && prevRepoInfo !== null && newRepoInfo.ref === 'HEAD' && prevRepoInfo.ref !== 'HEAD'
       ? { ...newRepoInfo, ref: prevRepoInfo.ref }
       : newRepoInfo;
 
   setState({ repoInfo: effectiveRepoInfo, activePath: newActivePath, loading: false, error: null });
 
-  if (!sameRepo) {
+  if (!sameTreeSource) {
     // Different repository — clear stale tree, reset filter, and refetch
-    setState({ treeNodes: [], filterQuery: '' });
+    setState({ treeNodes: [], filterQuery: '', hasLoadedTree: false });
     const searchInput = document.querySelector<HTMLInputElement>(`#${SIDEBAR_ID} .${PREFIX}-search-input`);
     if (searchInput) searchInput.value = '';
     if (getState().sidebarOpen) void loadTree();
+  } else if (effectiveRepoInfo.mode === 'pull-request' && newActivePath !== null) {
+    queuePullRequestFileScroll(newActivePath);
   }
-  // Same repo: treeNodes stays intact, subscriber re-renders with updated activePath only
+  // Same tree source: treeNodes stays intact, subscriber re-renders with updated activePath only
+}
+
+/** Keeps active file state in sync when only the URL hash changes. */
+function handleHashChange(): void {
+  const activePath = parseActiveFilePath(window.location.href);
+  setState({ activePath });
+  queuePullRequestFileScroll(activePath);
 }
 
 // ─── Bootstrap ───────────────────────────────────────────────────────────────
@@ -494,6 +573,7 @@ document.addEventListener('turbo:load', handleNavigation);
 document.addEventListener('turbo:render', handleNavigation);
 // Legacy PJAX fallback (older GitHub versions)
 document.addEventListener('pjax:end', handleNavigation);
+window.addEventListener('hashchange', handleHashChange);
 
 // Turbo Drive swaps <body> on every navigation, wiping the margin-left class.
 // Pre-apply the class AND an inline style to the INCOMING body before the swap
@@ -540,4 +620,6 @@ void (async () => {
   if (getState().sidebarOpen) {
     void loadTree();
   }
+
+  queuePullRequestFileScroll(getState().activePath);
 })();

@@ -609,6 +609,8 @@ export function renderTree(
   if (hierarchy.length === 0) {
     if (isFiltering) {
       container.innerHTML = `<p class="${PREFIX}-search-empty">No files match <strong>${escapeHtml(trimmed)}</strong></p>`;
+    } else if (repoInfo.mode === 'pull-request') {
+      container.innerHTML = `<p class="${PREFIX}-empty">No changed files found in this pull request.</p>`;
     } else {
       container.innerHTML = `<p class="${PREFIX}-empty">This repository appears to be empty.</p>`;
     }
@@ -706,9 +708,10 @@ function renderTreeItems(
         li.appendChild(childUl);
       }
     } else {
-      const fileUrl =
+      const fileUrl = item.node.htmlUrl ?? (
         `https://github.com/${repoInfo.owner}/${repoInfo.repo}` +
-        `/blob/${repoInfo.ref}/${item.fullPath}`;
+        `/blob/${repoInfo.ref}/${item.fullPath}`
+      );
 
       const anchor = document.createElement('a');
       anchor.className = `${PREFIX}-file-link`;

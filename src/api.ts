@@ -8,6 +8,9 @@
 
 import type { RepoInfo, TreeNode } from './state';
 
+/** Hash prefix used to deep-link sidebar items into a pull request files page. */
+export const PULL_REQUEST_FILE_HASH_PREFIX = 'gtn-path=';
+
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 /** Raw item shape returned by the GitHub Trees API */
@@ -27,6 +30,15 @@ interface GitHubTreeResponse {
   tree: GitHubTreeItem[];
   /** True when the repository is too large for a single recursive response */
   truncated: boolean;
+}
+
+/** Item shape returned by GET /repos/{owner}/{repo}/pulls/{pull_number}/files */
+interface GitHubPullRequestFile {
+  sha: string;
+  filename: string;
+  status: string;
+  blob_url?: string | null;
+  previous_filename?: string;
 }
 
 /**
@@ -109,6 +121,70 @@ export async function fetchRepoTree(
 }
 
 /**
+ * Fetches the list of changed files for a pull request and returns them as
+ * synthetic TreeNode objects, including ancestor directories.
+ */
+export async function fetchPullRequestFiles(
+  repoInfo: RepoInfo,
+  authToken?: string,
+): Promise<ApiResult<TreeNode[]>> {
+  if (repoInfo.mode !== 'pull-request' || repoInfo.prNumber === undefined) {
+    return { ok: false, error: 'Pull request context is missing from the current URL.' };
+  }
+
+  const headers: HeadersInit = {
+    Accept: 'application/vnd.github.v3+json',
+  };
+  if (authToken) {
+    headers['Authorization'] = `Bearer ${authToken}`;
+  }
+
+  try {
+    const files: GitHubPullRequestFile[] = [];
+
+    for (let page = 1; page <= 20; page++) {
+      const response = await fetch(
+        `https://api.github.com/repos/${encodeURIComponent(repoInfo.owner)}/${encodeURIComponent(repoInfo.repo)}` +
+        `/pulls/${repoInfo.prNumber}/files?per_page=100&page=${page}`,
+        { headers },
+      );
+
+      if (!response.ok) {
+        const githubMsg = await readErrorMessage(response);
+        return {
+          ok: false,
+          error: buildPullRequestFilesError(response.status, repoInfo.owner, repoInfo.repo, repoInfo.prNumber, githubMsg, response.headers),
+        };
+      }
+
+      const pageItems = await response.json() as GitHubPullRequestFile[];
+      files.push(...pageItems);
+
+      if (pageItems.length < 100) break;
+    }
+
+    return {
+      ok: true,
+      data: buildTreeNodesFromFilePaths(
+        repoInfo.owner,
+        repoInfo.repo,
+        repoInfo.prNumber,
+        files.map((file) => ({
+          path: file.filename,
+          sha: file.sha,
+          htmlUrl:
+            `https://github.com/${repoInfo.owner}/${repoInfo.repo}/pull/${repoInfo.prNumber}/files` +
+            `#${PULL_REQUEST_FILE_HASH_PREFIX}${encodeURIComponent(file.filename)}`,
+        })),
+      ),
+    };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Unknown network error';
+    return { ok: false, error: `Network error: ${message}` };
+  }
+}
+
+/**
  * Parses a GitHub URL and extracts repository context.
  *
  * Supported patterns:
@@ -152,11 +228,18 @@ export function parseGitHubUrl(href: string): RepoInfo | null {
 
   // Derive ref from URL segments when available
   let ref = 'HEAD';
+  if (type === 'pull' && rest.length > 0) {
+    const prNumber = Number(rest[0]);
+    if (Number.isInteger(prNumber) && prNumber > 0) {
+      return { owner, repo, ref: `PR #${prNumber}`, mode: 'pull-request', prNumber };
+    }
+  }
+
   if ((type === 'tree' || type === 'blob') && rest.length > 0) {
     ref = rest[0];
   }
 
-  return { owner, repo, ref };
+  return { owner, repo, ref, mode: 'repo' };
 }
 
 /**
@@ -213,7 +296,14 @@ export function parseActiveFilePath(href: string): string | null {
   const parts = url.pathname.split('/').filter(Boolean);
   // [owner, repo, 'blob', branch, ...fileParts]
   if (parts.length < 5 || parts[2] !== 'blob') return null;
-  return parts.slice(4).join('/') || null;
+  if (parts[2] === 'blob') {
+    return parts.slice(4).join('/') || null;
+  }
+  if (parts[2] === 'pull' && parts[4] === 'files' && url.hash.startsWith(`#${PULL_REQUEST_FILE_HASH_PREFIX}`)) {
+    const encodedPath = url.hash.slice(PULL_REQUEST_FILE_HASH_PREFIX.length + 1);
+    return encodedPath ? decodeURIComponent(encodedPath) : null;
+  }
+  return null;
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -258,6 +348,71 @@ function buildHttpError(
     default:
       return `GitHub API returned an unexpected status: ${status}.`;
   }
+}
+
+/** Builds a user-facing error string for PR changed-files API failures. */
+function buildPullRequestFilesError(
+  status: number,
+  owner: string,
+  repo: string,
+  prNumber: number,
+  githubMsg = '',
+  respHeaders?: Headers,
+): string {
+  switch (status) {
+    case 401:
+      return 'Authentication failed — token is invalid or expired. Update it in Settings.';
+    case 403: {
+      const isRateLimit =
+        respHeaders?.get('X-RateLimit-Remaining') === '0' ||
+        githubMsg.toLowerCase().includes('rate limit');
+      if (isRateLimit) {
+        return 'GitHub API rate limit exceeded. Add a token in Settings for 5 000 req/hr instead of 60.';
+      }
+      return 'Access denied — token lacks the required permissions to read pull request files.';
+    }
+    case 404:
+      return `Pull request #${prNumber} for "${owner}/${repo}" was not found or is not accessible.`;
+    default:
+      return `GitHub API returned an unexpected status while loading PR files: ${status}.`;
+  }
+}
+
+/** Builds a flat tree representation from a list of changed file paths. */
+function buildTreeNodesFromFilePaths(
+  owner: string,
+  repo: string,
+  prNumber: number,
+  files: Array<{ path: string; sha: string; htmlUrl: string }>,
+): TreeNode[] {
+  const nodes: TreeNode[] = [];
+  const dirPaths = new Set<string>();
+
+  for (const file of files) {
+    const parts = file.path.split('/');
+    for (let i = 1; i < parts.length; i++) {
+      const dirPath = parts.slice(0, i).join('/');
+      if (!dirPaths.has(dirPath)) {
+        dirPaths.add(dirPath);
+        nodes.push({
+          path: dirPath,
+          type: 'tree',
+          sha: '',
+          url: `https://github.com/${owner}/${repo}/pull/${prNumber}/files`,
+        });
+      }
+    }
+
+    nodes.push({
+      path: file.path,
+      type: 'blob',
+      sha: file.sha,
+      url: `https://github.com/${owner}/${repo}/pull/${prNumber}/files`,
+      htmlUrl: file.htmlUrl,
+    });
+  }
+
+  return nodes;
 }
 
 /**

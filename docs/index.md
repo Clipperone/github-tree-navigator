@@ -28,6 +28,7 @@ no backend, no account required.
 |:---|:---|
 | 🌲 **Instant file tree** | Fetches the full recursive repository tree in a single API call and renders it as a collapsible, indented hierarchy — no page reloads. |
 | 🔍 **Live search / filter** | Type to narrow the tree to matching files; matched substrings are highlighted and ancestor directories auto-expand. |
+| 🧾 **Pull request mode** | On pull request pages the sidebar switches to a tree of changed files, making PR review faster and easier to navigate. |
 | 🔑 **Private repo support** | Store a GitHub Personal Access Token once via the settings panel; raises the rate limit from 60 to 5 000 req/hr and unlocks private repositories. |
 | 🎨 **File-type icons** | Colour-coded icons for TypeScript, JavaScript, JSON, Markdown, YAML, images, test files, CSS, HTML, and more — inline SVG, no icon library needed. |
 | ↔ **Resizable sidebar** | Drag the right edge to any width between 180 px and 600 px; your preference persists across sessions. |
@@ -71,7 +72,6 @@ communicates with **no server other than `api.github.com`**.
 ## Current Limitations
 
 - **GitHub.com only** — the current version does not yet support GitHub Enterprise or other self-hosted GitHub instances.
-- **Repository browsing first** — the sidebar is designed for repository and file pages; a dedicated pull-request changed-files mode is not implemented yet.
 - **Very large repositories** — GitHub's Trees API may return truncated results for huge repositories, so some edge-case trees can be incomplete in the current version.
 
 ---

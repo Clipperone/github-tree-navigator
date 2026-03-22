@@ -9,6 +9,7 @@
 - **🌲 Instant file tree** — fetches the full recursive repository tree in a single API call and renders it as a collapsible hierarchy inside an injected sidebar without page reloads.
 - **🎨 File-type icons** — every node in the tree displays a colour-coded icon based on its extension or well-known filename. Directories are distinguished at a glance with a folder icon (sky blue); files use type-specific colours: TypeScript (blue), JavaScript (yellow), JSON (purple), Markdown (accent blue), YAML (orange), images (green), lockfiles (red), test/spec files (purple), CSS/SCSS (pink), HTML (orange-red), with a neutral grey fallback for all other types. All colours are expressed via GitHub's `--color-*` CSS custom properties, so dark and light themes are supported automatically. No external icon library is used — icons are inline SVG paths bundled directly in `ui.ts`.
 - **🔍 Live search / filter** — type to narrow the tree to matching files; matched substrings are highlighted and ancestor directories are auto-expanded automatically.
+- **🧾 Pull request changed-files mode** — on pull request pages the sidebar switches to a tree of the files changed in that PR and can jump directly into the `Files changed` view.
 - **🔑 Personal Access Token** — store a GitHub PAT once via the settings panel; it is saved in `chrome.storage.local` (browser-local only, never sent anywhere except the GitHub API). Raises the rate limit from 60 to 5 000 requests/hr and enables private-repository access.
 - **↔ Resizable sidebar** — drag the right edge to any width between 180 px and 600 px; the chosen width is persisted across sessions via `chrome.storage.local`.
 - **📌 Pin mode** — pin the sidebar open so it stays visible while navigating; when unpinned it opens on hover and closes when the cursor leaves.
@@ -148,7 +149,6 @@ content_script  ──►  state
 - **Truncated trees**: The GitHub Trees API skips very large repositories (returns `truncated: true`). A warning is logged to the console; no workaround exists in the current version.
 - **Rate limits**: Without a PAT, unauthenticated requests are limited to 60/hr shared across your IP. Add a token to raise this to 5 000/hr per account.
 - **GitHub.com only**: The current version targets `github.com` and `api.github.com` only. GitHub Enterprise / self-hosted instances are not yet supported.
-- **Repository browsing first**: The current version is built for repository and file pages. Dedicated pull-request changed-files mode is not implemented yet.
 
 ---
 
@@ -164,3 +164,4 @@ Use this before releasing changes:
 6. Use Expand All / Collapse All on a medium-size repository.
 7. Save and remove a PAT; confirm token status updates and private-repo access works when applicable.
 8. Navigate within the same repo via GitHub SPA navigation and confirm the sidebar stays mounted and in sync.
+9. Open a pull request and confirm the sidebar shows only changed files, then click a file and verify it lands in the PR `Files changed` view.

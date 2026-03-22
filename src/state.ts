@@ -7,6 +7,9 @@
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
+/** Supported GitHub page modes the sidebar can represent. */
+export type RepoMode = 'repo' | 'pull-request';
+
 /** Identifies a GitHub repository by owner, repository name, and git ref. */
 export interface RepoInfo {
   /** Repository owner (user or organization username) */
@@ -15,6 +18,10 @@ export interface RepoInfo {
   repo: string;
   /** Branch name, tag, or commit SHA. Defaults to "HEAD". */
   ref: string;
+  /** Repository page mode currently represented by the sidebar. */
+  mode: RepoMode;
+  /** Pull request number when `mode === "pull-request"`. */
+  prNumber?: number;
 }
 
 /**
@@ -32,6 +39,8 @@ export interface TreeNode {
   url: string;
   /** File size in bytes — only present for blobs */
   size?: number;
+  /** Navigable GitHub URL for this node when different from the default blob URL. */
+  htmlUrl?: string;
 }
 
 /** Full application state shape */
@@ -50,6 +59,8 @@ export interface AppState {
   loading: boolean;
   /** Human-readable error message; null when no error */
   error: string | null;
+  /** True after a tree load has completed successfully, even if it returned zero nodes. */
+  hasLoadedTree: boolean;
   /** Repo-relative path of the file currently viewed (from URL); null on non-blob pages */
   activePath: string | null;
   /** Current search/filter query typed by the user; empty string means no filter */
@@ -69,6 +80,7 @@ const initialState: Readonly<AppState> = {
   expandedPaths: new Set<string>(),
   loading: false,
   error: null,
+  hasLoadedTree: false,
   activePath: null,
   filterQuery: '',
 };
@@ -143,6 +155,7 @@ export function resetState(): void {
     treeNodes: [],
     loading: false,
     error: null,
+    hasLoadedTree: false,
     activePath: null,
     filterQuery: '',
     // pinned, sidebarOpen, expandedPaths intentionally preserved across navigations
