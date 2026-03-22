@@ -1,0 +1,51 @@
+# ─── Site Identity ────────────────────────────────────────────────────────────
+title: "GitHub Tree Navigator"
+description: >-
+  A Manifest V3 Chrome extension that injects a collapsible, searchable
+  file-tree sidebar into every GitHub repository page — instant, free,
+  no account required.
+author: "Clipperone"
+
+# The URL of your GitHub Pages site.
+# For a project page it is typically: https://<username>.github.io
+url: "https://clipperone.github.io"
+# The sub-path of your site.  Must match the repository name for a project page.
+# Set to "" (empty string) only if you are using a custom domain at the apex.
+baseurl: "/github-tree-navigator"
+
+lang: "en"
+
+# ─── Theme ────────────────────────────────────────────────────────────────────
+# "jekyll-theme-cayman" is a first-party GitHub Pages supported theme.
+# No extra CSS or build step is required — GitHub Pages builds it automatically.
+theme: jekyll-theme-cayman
+
+# ─── SEO extras (consumed by jekyll-seo-tag) ──────────────────────────────────
+# Add your Twitter/X handle here if you have one; leave blank otherwise.
+twitter:
+  username: ""
+
+social:
+  name: Clipperone
+  links:
+    - https://github.com/Clipperone
+
+# ─── Plugins (all are on the GitHub Pages whitelist) ─────────────────────────
+# jekyll-seo-tag  → injects <title>, <meta description>, OG tags, etc.
+# jekyll-sitemap  → auto-generates /sitemap.xml for Google Search Console
+plugins:
+  - jekyll-seo-tag
+  - jekyll-sitemap
+
+# ─── Keep extension source files out of the built site ───────────────────────
+exclude:
+  - node_modules/
+  - dist/
+  - src/
+  - scripts/
+  - vite.config.ts
+  - vite.config.ts.timestamp-*
+  - tsconfig.json
+  - package.json
+  - package-lock.json
+  - "*.md"          # README.md at root — not part of the site

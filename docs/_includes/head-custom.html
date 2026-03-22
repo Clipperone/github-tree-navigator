@@ -1,0 +1,23 @@
+<!-- ================================================================
+     Google Search Console — ownership verification
+     ─────────────────────────────────────────────────────────────
+     Steps:
+       1. Go to https://search.google.com/search-console/
+       2. Add your GitHub Pages URL as a new property
+          (e.g. https://clipperone.github.io/github-tree-navigator)
+       3. Choose the "HTML tag" verification method
+       4. Copy the <meta> tag provided, paste it below, and
+          DELETE the surrounding HTML comment markers.
+     ================================================================ -->
+<!-- <meta name="google-site-verification" content="PASTE_YOUR_VERIFICATION_CODE_HERE" /> -->
+
+<!-- Open Graph — controls how the link looks when shared on social media -->
+<meta property="og:type"        content="website" />
+<meta property="og:title"       content="{{ page.title | default: site.title | xml_escape }}" />
+<meta property="og:description" content="{{ page.description | default: site.description | xml_escape }}" />
+<meta property="og:url"         content="{{ page.url | prepend: site.url }}" />
+
+<!-- Twitter / X card -->
+<meta name="twitter:card"        content="summary" />
+<meta name="twitter:title"       content="{{ page.title | default: site.title | xml_escape }}" />
+<meta name="twitter:description" content="{{ page.description | default: site.description | xml_escape }}" />
