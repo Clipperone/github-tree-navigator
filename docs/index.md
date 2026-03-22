@@ -85,3 +85,7 @@ npm run build        # output → dist/
 > the ⚙ gear icon in the sidebar header and enter a
 > [GitHub Personal Access Token](https://github.com/settings/tokens)
 > with `repo` (or `public_repo`) scope.
+
+---
+
+[Privacy Policy]({{ '/privacy/' | relative_url }})
