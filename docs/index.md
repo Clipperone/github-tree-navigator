@@ -64,6 +64,15 @@ communicates with **no server other than `api.github.com`**.
 | Build tool | Vite + @crxjs/vite-plugin |
 | Language | TypeScript (strict mode) |
 | Permissions | `storage` + `https://api.github.com/*` only |
+| Supported host | `github.com` |
+
+---
+
+## Current Limitations
+
+- **GitHub.com only** — the current version does not yet support GitHub Enterprise or other self-hosted GitHub instances.
+- **Repository browsing first** — the sidebar is designed for repository and file pages; a dedicated pull-request changed-files mode is not implemented yet.
+- **Very large repositories** — GitHub's Trees API may return truncated results for huge repositories, so some edge-case trees can be incomplete in the current version.
 
 ---
 
