@@ -43,7 +43,7 @@ All logic runs inside a content script injected directly into `github.com` pages
 ## Installation (from source)
 
 ```bash
-git clone https://github.com/<you>/github-tree-navigator.git
+git clone https://github.com/Clipperone/github-tree-navigator.git
 cd github-tree-navigator
 npm install
 npm run build       # outputs to dist/
@@ -57,6 +57,17 @@ Then in Chrome:
 4. Open any public GitHub repository — the tree tab appears on the left edge.
 
 > **Tip:** For private repositories or to avoid the 60 req/hr rate limit, click the gear icon in the sidebar header and enter a [GitHub Personal Access Token](https://github.com/settings/tokens) with `repo` (or `public_repo`) scope.
+
+## Release Status
+
+- Current release line: `1.1.x`
+- Latest documented release notes: [CHANGELOG.md](CHANGELOG.md)
+
+## Support
+
+- Source code: [https://github.com/Clipperone/github-tree-navigator](https://github.com/Clipperone/github-tree-navigator)
+- Issue tracker: [https://github.com/Clipperone/github-tree-navigator/issues](https://github.com/Clipperone/github-tree-navigator/issues)
+- Privacy policy: [docs/privacy.md](docs/privacy.md)
 
 ---
 

@@ -20,6 +20,8 @@ Stop hunting for files by scrolling through GitHub's breadcrumbs.
 into any GitHub repository page the moment you open it — no configuration,
 no backend, no account required.
 
+Current release: **v1.1.0**
+
 ---
 
 ## Features
@@ -70,6 +72,16 @@ communicates with **no server other than `api.github.com`**.
 | Language | TypeScript (strict mode) |
 | Permissions | `storage` + `https://api.github.com/*` only |
 | Supported host | `github.com` |
+
+---
+
+## Support & Links
+
+- [Chrome Web Store](https://chromewebstore.google.com/detail/github-tree-navigator/jgfkilmfnkcjmnjbkbflfclmagfdabpe)
+- [Source Code](https://github.com/Clipperone/github-tree-navigator)
+- [Issue Tracker](https://github.com/Clipperone/github-tree-navigator/issues)
+- [Privacy Policy]({{ '/privacy/' | relative_url }})
+- [Changelog](https://github.com/Clipperone/github-tree-navigator/blob/master/CHANGELOG.md)
 
 ---
 
