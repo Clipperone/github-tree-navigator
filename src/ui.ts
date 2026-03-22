@@ -12,10 +12,30 @@
 
 import type { RepoInfo, TreeLoadMode, TreeNode } from './state';
 
+export type FileActionId = 'copy-path' | 'copy-link' | 'open-raw' | 'open-blame' | 'open-history';
+
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 /** CSS class/ID prefix scoping all extension elements to avoid collisions with GitHub styles. */
 export const PREFIX = 'gtn';
+
+interface FileActionOption {
+  id: FileActionId;
+  label: string;
+}
+
+const REPO_FILE_ACTIONS: readonly FileActionOption[] = [
+  { id: 'copy-path', label: 'Copy path' },
+  { id: 'copy-link', label: 'Copy permalink' },
+  { id: 'open-raw', label: 'Open raw' },
+  { id: 'open-blame', label: 'Open blame' },
+  { id: 'open-history', label: 'Open history' },
+];
+
+const PULL_REQUEST_FILE_ACTIONS: readonly FileActionOption[] = [
+  { id: 'copy-path', label: 'Copy path' },
+  { id: 'copy-link', label: 'Copy permalink' },
+];
 
 // ─── Internal Types ───────────────────────────────────────────────────────────
 
@@ -604,6 +624,7 @@ export function renderTree(
   lazyLoadError: string | null,
   onToggleDir: (path: string) => void,
   onFileClick: (path: string, url: string) => void,
+  onFileAction: (actionId: FileActionId, path: string, url: string) => void,
 ): void {
   const trimmed = filterQuery.trim();
   const isFiltering = trimmed.length > 0;
@@ -638,7 +659,7 @@ export function renderTree(
     ul, hierarchy, effectiveExpanded, repoInfo, activePath,
     highlightQuery,
     lazyLoadingPaths,
-    onToggleDir, onFileClick, 0,
+    onToggleDir, onFileClick, onFileAction, 0,
   );
 
   const fragment = document.createDocumentFragment();
@@ -699,6 +720,7 @@ function renderTreeItems(
   lazyLoadingPaths: Set<string>,
   onToggleDir: (path: string) => void,
   onFileClick: (path: string, url: string) => void,
+  onFileAction: (actionId: FileActionId, path: string, url: string) => void,
   depth: number,
 ): void {
   for (const item of items) {
@@ -740,7 +762,7 @@ function renderTreeItems(
         childUl.setAttribute('role', 'group');
         renderTreeItems(
           childUl, item.children, expandedPaths,
-          repoInfo, activePath, filterQuery, lazyLoadingPaths, onToggleDir, onFileClick, depth + 1,
+          repoInfo, activePath, filterQuery, lazyLoadingPaths, onToggleDir, onFileClick, onFileAction, depth + 1,
         );
         li.appendChild(childUl);
       }
@@ -749,6 +771,7 @@ function renderTreeItems(
         `https://github.com/${repoInfo.owner}/${repoInfo.repo}` +
         `/blob/${repoInfo.ref}/${item.fullPath}`
       );
+      const fileActions = repoInfo.mode === 'pull-request' ? PULL_REQUEST_FILE_ACTIONS : REPO_FILE_ACTIONS;
 
       const anchor = document.createElement('a');
       anchor.className = `${PREFIX}-file-link`;
@@ -765,7 +788,45 @@ function renderTreeItems(
       `;
       // Let the browser/Turbo Drive navigate naturally; just record the active path
       anchor.addEventListener('click', () => { onFileClick(item.fullPath, fileUrl); });
-      li.appendChild(anchor);
+
+      const row = document.createElement('div');
+      row.className = `${PREFIX}-file-row`;
+      row.appendChild(anchor);
+
+      const actions = document.createElement('details');
+      actions.className = `${PREFIX}-file-actions`;
+
+      const summary = document.createElement('summary');
+      summary.className = `${PREFIX}-file-actions-toggle`;
+      summary.setAttribute('role', 'button');
+      summary.setAttribute('aria-label', `File actions for ${item.name}`);
+      summary.innerHTML = /* html */ `
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+          <path d="M8 4a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3Zm0 6.5A1.5 1.5 0 1 1 8 7.5a1.5 1.5 0 0 1 0 3Zm0 6.5a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3Z"/>
+        </svg>
+      `;
+      actions.appendChild(summary);
+
+      const menu = document.createElement('div');
+      menu.className = `${PREFIX}-file-actions-menu`;
+
+      for (const action of fileActions) {
+        const actionButton = document.createElement('button');
+        actionButton.type = 'button';
+        actionButton.className = `${PREFIX}-file-action-btn`;
+        actionButton.textContent = action.label;
+        actionButton.addEventListener('click', (event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          actions.open = false;
+          onFileAction(action.id, item.fullPath, fileUrl);
+        });
+        menu.appendChild(actionButton);
+      }
+
+      actions.appendChild(menu);
+      row.appendChild(actions);
+      li.appendChild(row);
     }
 
     parent.appendChild(li);

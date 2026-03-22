@@ -21,6 +21,7 @@
 - **🌗 Dark / light mode** — all colours use GitHub's own `--color-*` CSS custom properties, so the sidebar follows GitHub's theme automatically.
 - **♿ Accessible** — ARIA roles, labels, and `aria-live` regions on every interactive element.
 - **⌨️ Keyboard navigation** — use `Alt+\` to open/focus the sidebar, `/` to focus search, arrow keys to move through the tree, `Enter`/`Space` to activate items, and `Escape` to exit the current sidebar mode.
+- **🧰 File quick actions** — each file row exposes lightweight actions for copy path, copy permalink, open raw, open blame, and open history.
 
 ---
 
@@ -172,6 +173,8 @@ Use this before releasing changes:
 11. Press `Alt+\` and confirm the sidebar opens with focus in the search field.
 12. With focus inside the tree, use `ArrowUp`, `ArrowDown`, `ArrowLeft`, `ArrowRight`, `Enter`, and `Space` to navigate and expand/collapse without using the mouse.
 13. Press `/` to focus search and `Escape` to clear search, close settings, or close the sidebar as appropriate.
+14. Open the file quick actions menu on a normal repo file and verify copy path, copy permalink, open raw, open blame, and open history all behave correctly.
+15. Open the file quick actions menu on a PR file and verify copy path and copy permalink are available without breaking the main file click.
 
 ## Keyboard Shortcuts
 

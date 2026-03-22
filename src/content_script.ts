@@ -28,6 +28,7 @@ import {
 import {
   createToggleButton,
   createSidebar,
+  type FileActionId,
   renderLoading,
   renderError,
   renderTree,
@@ -160,6 +161,43 @@ function isEditableTarget(target: EventTarget | null): boolean {
     target.isContentEditable ||
     target.closest('[contenteditable="true"]') !== null
   );
+}
+
+async function copyTextToClipboard(text: string): Promise<void> {
+  try {
+    await navigator.clipboard.writeText(text);
+    return;
+  } catch {
+    const textarea = document.createElement('textarea');
+    textarea.value = text;
+    textarea.setAttribute('readonly', 'true');
+    textarea.style.position = 'fixed';
+    textarea.style.top = '-9999px';
+    document.body.appendChild(textarea);
+    textarea.select();
+    document.execCommand('copy');
+    textarea.remove();
+  }
+}
+
+function buildRepoFileActionUrl(actionId: FileActionId, repoInfo: NonNullable<ReturnType<typeof getState>['repoInfo']>, path: string): string | null {
+  if (repoInfo.mode !== 'repo') return null;
+
+  const encodedSegments = path
+    .split('/')
+    .map((segment) => encodeURIComponent(segment))
+    .join('/');
+
+  switch (actionId) {
+    case 'open-raw':
+      return `https://raw.githubusercontent.com/${repoInfo.owner}/${repoInfo.repo}/${encodeURIComponent(repoInfo.ref)}/${encodedSegments}`;
+    case 'open-blame':
+      return `https://github.com/${repoInfo.owner}/${repoInfo.repo}/blame/${encodeURIComponent(repoInfo.ref)}/${encodedSegments}`;
+    case 'open-history':
+      return `https://github.com/${repoInfo.owner}/${repoInfo.repo}/commits/${encodeURIComponent(repoInfo.ref)}/${encodedSegments}`;
+    default:
+      return null;
+  }
 }
 
 function getSidebarElement(): HTMLElement | null {
@@ -554,6 +592,7 @@ function mount(): void {
         s.lazyLoadError,
         handleToggleDir,
         handleFileClick,
+        handleFileAction,
       );
       restoreTreeFocus(sidebar);
     }
@@ -795,6 +834,28 @@ function handleFileClick(path: string, _url: string): void {
   setState({ activePath: path });
   if (getState().repoInfo?.mode === 'pull-request') {
     queuePullRequestFileScroll(path);
+  }
+}
+
+async function handleFileAction(actionId: FileActionId, path: string, url: string): Promise<void> {
+  const repoInfo = getState().repoInfo;
+  if (repoInfo === null) return;
+
+  switch (actionId) {
+    case 'copy-path':
+      await copyTextToClipboard(path);
+      return;
+    case 'copy-link':
+      await copyTextToClipboard(url);
+      return;
+    case 'open-raw':
+    case 'open-blame':
+    case 'open-history': {
+      const targetUrl = buildRepoFileActionUrl(actionId, repoInfo, path);
+      if (targetUrl === null) return;
+      window.open(targetUrl, '_blank', 'noopener,noreferrer');
+      return;
+    }
   }
 }
 

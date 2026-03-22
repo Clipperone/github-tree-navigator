@@ -694,6 +694,12 @@ body.gtn-body--sidebar-pinned {
   display: block;
 }
 
+.gtn-file-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
 /* ─── Directory Button ──────────────────────────────────────────────────── */
 
 .gtn-dir-btn {
@@ -731,6 +737,8 @@ body.gtn-body--sidebar-pinned {
   display: flex;
   align-items: center;
   gap: 4px;
+  min-width: 0;
+  flex: 1;
   padding: 2px 8px 2px calc(8px + var(--depth, 0) * 16px);
   border-radius: 4px;
   color: var(--color-fg-default, #1f2328);
@@ -762,6 +770,92 @@ body.gtn-body--sidebar-pinned {
 .gtn-file-link--active:hover {
   background: var(--color-accent-muted, rgba(9, 105, 218, 0.2));
   color: var(--color-accent-fg, #0969da);
+}
+
+.gtn-file-actions {
+  position: relative;
+  margin-right: 6px;
+  flex-shrink: 0;
+}
+
+.gtn-file-actions-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--color-fg-muted, #656d76);
+  cursor: pointer;
+  list-style: none;
+  opacity: 0;
+  transition: opacity 120ms ease, background-color 120ms ease, color 120ms ease;
+}
+
+.gtn-file-actions-toggle::-webkit-details-marker {
+  display: none;
+}
+
+.gtn-file-row:hover .gtn-file-actions-toggle,
+.gtn-file-row:focus-within .gtn-file-actions-toggle,
+.gtn-file-actions[open] .gtn-file-actions-toggle {
+  opacity: 1;
+}
+
+.gtn-file-actions-toggle:hover {
+  color: var(--color-fg-default, #1f2328);
+  background: var(--color-neutral-muted, rgba(175, 184, 193, 0.2));
+}
+
+.gtn-file-actions-toggle:focus-visible {
+  opacity: 1;
+  outline: 2px solid var(--color-accent-fg, #0969da);
+  outline-offset: 1px;
+}
+
+.gtn-file-actions-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  z-index: 2;
+  display: none;
+  min-width: 140px;
+  padding: 4px;
+  border: 1px solid var(--color-border-default, #d0d7de);
+  border-radius: 8px;
+  background: var(--color-canvas-overlay, #ffffff);
+  box-shadow: 0 8px 24px rgba(31, 35, 40, 0.12);
+}
+
+.gtn-file-actions[open] .gtn-file-actions-menu {
+  display: flex;
+  flex-direction: column;
+}
+
+.gtn-file-action-btn {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  padding: 6px 8px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--color-fg-default, #1f2328);
+  font-size: 12px;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.gtn-file-action-btn:hover {
+  background: var(--color-action-list-item-default-hover-bg, rgba(208, 215, 222, 0.32));
+}
+
+.gtn-file-action-btn:focus-visible {
+  outline: 2px solid var(--color-accent-fg, #0969da);
+  outline-offset: -2px;
 }
 
 /* ─── Icons ─────────────────────────────────────────────────────────────── */
