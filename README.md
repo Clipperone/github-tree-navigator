@@ -10,6 +10,7 @@
 - **🎨 File-type icons** — every node in the tree displays a colour-coded icon based on its extension or well-known filename. Directories are distinguished at a glance with a folder icon (sky blue); files use type-specific colours: TypeScript (blue), JavaScript (yellow), JSON (purple), Markdown (accent blue), YAML (orange), images (green), lockfiles (red), test/spec files (purple), CSS/SCSS (pink), HTML (orange-red), with a neutral grey fallback for all other types. All colours are expressed via GitHub's `--color-*` CSS custom properties, so dark and light themes are supported automatically. No external icon library is used — icons are inline SVG paths bundled directly in `ui.ts`.
 - **🔍 Live search / filter** — type to narrow the tree to matching files; matched substrings are highlighted and ancestor directories are auto-expanded automatically.
 - **🧾 Pull request changed-files mode** — on pull request pages the sidebar switches to a tree of the files changed in that PR and can jump directly into the `Files changed` view.
+- **📦 Large repository fallback** — when GitHub's recursive Trees API is truncated, the sidebar automatically switches to lazy directory loading instead of failing silently.
 - **🔑 Personal Access Token** — store a GitHub PAT once via the settings panel; it is saved in `chrome.storage.local` (browser-local only, never sent anywhere except the GitHub API). Raises the rate limit from 60 to 5 000 requests/hr and enables private-repository access.
 - **↔ Resizable sidebar** — drag the right edge to any width between 180 px and 600 px; the chosen width is persisted across sessions via `chrome.storage.local`.
 - **📌 Pin mode** — pin the sidebar open so it stays visible while navigating; when unpinned it opens on hover and closes when the cursor leaves.
@@ -146,7 +147,7 @@ content_script  ──►  state
 
 ## Known limitations
 
-- **Truncated trees**: The GitHub Trees API skips very large repositories (returns `truncated: true`). A warning is logged to the console; no workaround exists in the current version.
+- **Lazy mode tradeoff on huge repos**: When GitHub truncates the recursive tree, the sidebar falls back to loading directories on demand. In that mode search only covers the folders already opened, and Expand All is disabled deliberately.
 - **Rate limits**: Without a PAT, unauthenticated requests are limited to 60/hr shared across your IP. Add a token to raise this to 5 000/hr per account.
 - **GitHub.com only**: The current version targets `github.com` and `api.github.com` only. GitHub Enterprise / self-hosted instances are not yet supported.
 

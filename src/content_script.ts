@@ -20,6 +20,7 @@
 import {
   parseGitHubUrl,
   fetchRepoTree,
+  fetchDirectoryContents,
   fetchPullRequestFiles,
   fetchDefaultBranch,
   parseActiveFilePath,
@@ -38,7 +39,7 @@ import {
   attachResizeHandle,
   PREFIX,
 } from './ui';
-import { getState, setState, subscribe, resetState, expandAllDirs, collapseAllDirs } from './state';
+import { getState, setState, subscribe, resetState, expandAllDirs, collapseAllDirs, type TreeNode } from './state';
 
 // ─── Element ID Constants ────────────────────────────────────────────────────
 
@@ -70,6 +71,20 @@ function loadExpandedPaths(): Set<string> {
     if (raw) return new Set(JSON.parse(raw) as string[]);
   } catch { /* ignore */ }
   return new Set<string>();
+}
+
+function mergeTreeNodes(existing: readonly TreeNode[], incoming: readonly TreeNode[]): TreeNode[] {
+  const byPath = new Map<string, TreeNode>();
+
+  for (const node of existing) {
+    byPath.set(node.path, node);
+  }
+  for (const node of incoming) {
+    const previous = byPath.get(node.path);
+    byPath.set(node.path, previous ? { ...previous, ...node } : node);
+  }
+
+  return Array.from(byPath.values());
 }
 
 // ─── Token Storage ──────────────────────────────────────────────────────────
@@ -210,7 +225,11 @@ function mount(): void {
     } else if (s.repoInfo !== null && s.hasLoadedTree) {
       // Update expand-all safeguard whenever treeNodes change
       const dirCount = s.treeNodes.filter((n) => n.type === 'tree').length;
-      setExpandAllEnabled(sidebar, dirCount <= EXPAND_ALL_DIR_LIMIT);
+      const canExpandAll = s.treeLoadMode !== 'lazy' && dirCount <= EXPAND_ALL_DIR_LIMIT;
+      const expandAllDisabledReason = s.treeLoadMode === 'lazy'
+        ? 'Expand all unavailable in large repository mode'
+        : 'This repository has more than 500 directories, so expanding everything at once is blocked to avoid freezing the page.';
+      setExpandAllEnabled(sidebar, canExpandAll, expandAllDisabledReason);
       renderTree(
         content,
         s.treeNodes,
@@ -218,6 +237,10 @@ function mount(): void {
         s.repoInfo,
         s.activePath,
         s.filterQuery,
+        s.treeLoadMode,
+        canExpandAll ? null : expandAllDisabledReason,
+        s.lazyLoadingPaths,
+        s.lazyLoadError,
         handleToggleDir,
         handleFileClick,
       );
@@ -253,7 +276,7 @@ async function handleToggle(): Promise<void> {
   const opening = !getState().sidebarOpen;
   setState({ sidebarOpen: opening });
 
-  if (opening && getState().treeNodes.length === 0) {
+  if (opening && !getState().hasLoadedTree) {
     await loadTree();
   }
 }
@@ -279,7 +302,15 @@ async function handleSaveToken(token: string): Promise<void> {
     _authToken = token;
     const sidebar = document.getElementById(SIDEBAR_ID);
     if (sidebar) setTokenStatus(sidebar, true);
-    setState({ treeNodes: [], error: null, hasLoadedTree: false });
+    setState({
+      treeNodes: [],
+      error: null,
+      hasLoadedTree: false,
+      treeLoadMode: 'full',
+      lazyLoadedPaths: new Set<string>(),
+      lazyLoadingPaths: new Set<string>(),
+      lazyLoadError: null,
+    });
     if (getState().sidebarOpen) await loadTree();
   } catch { /* chrome.storage unavailable */ }
 }
@@ -291,7 +322,15 @@ async function handleRemoveToken(): Promise<void> {
     _authToken = undefined;
     const sidebar = document.getElementById(SIDEBAR_ID);
     if (sidebar) setTokenStatus(sidebar, false);
-    setState({ treeNodes: [], error: null, hasLoadedTree: false });
+    setState({
+      treeNodes: [],
+      error: null,
+      hasLoadedTree: false,
+      treeLoadMode: 'full',
+      lazyLoadedPaths: new Set<string>(),
+      lazyLoadingPaths: new Set<string>(),
+      lazyLoadError: null,
+    });
     if (getState().sidebarOpen) await loadTree();
   } catch { /* chrome.storage unavailable */ }
 }
@@ -308,6 +347,7 @@ function handleClose(): void {
  * EXPAND_ALL_DIR_LIMIT, so this handler can trust the call is safe.
  */
 function handleExpandAll(): void {
+  if (getState().treeLoadMode === 'lazy') return;
   const dirPaths = getState().treeNodes
     .filter((n) => n.type === 'tree')
     .map((n) => n.path);
@@ -324,7 +364,7 @@ function handlePin(): void {
   cancelHoverClose();
   const newPinned = !getState().pinned;
   setState({ pinned: newPinned, sidebarOpen: true });
-  if (newPinned && getState().treeNodes.length === 0) void loadTree();
+  if (newPinned && !getState().hasLoadedTree) void loadTree();
 }
 
 /** Opens the sidebar when the cursor enters the toggle wrapper. */
@@ -332,7 +372,7 @@ function handleHoverOpen(): void {
   cancelHoverClose();
   if (!getState().sidebarOpen) {
     setState({ sidebarOpen: true });
-    if (getState().treeNodes.length === 0) {
+    if (!getState().hasLoadedTree) {
       void loadTree();
     }
   }
@@ -364,10 +404,55 @@ function handleToggleDir(path: string): void {
   const next = new Set(getState().expandedPaths);
   if (next.has(path)) {
     next.delete(path);
-  } else {
-    next.add(path);
+    setState({ expandedPaths: next });
+    return;
   }
+
+  next.add(path);
   setState({ expandedPaths: next });
+
+  const state = getState();
+  if (
+    state.treeLoadMode === 'lazy' &&
+    state.repoInfo?.mode === 'repo' &&
+    !state.lazyLoadedPaths.has(path) &&
+    !state.lazyLoadingPaths.has(path)
+  ) {
+    void loadLazyDirectory(path);
+  }
+}
+
+async function loadLazyDirectory(path: string): Promise<void> {
+  const state = getState();
+  const repoInfo = state.repoInfo;
+  if (repoInfo === null || repoInfo.mode !== 'repo') return;
+
+  const nextLoadingPaths = new Set(state.lazyLoadingPaths);
+  nextLoadingPaths.add(path);
+  setState({ lazyLoadingPaths: nextLoadingPaths, lazyLoadError: null });
+
+  const result = await fetchDirectoryContents(repoInfo, path, _authToken);
+  const currentState = getState();
+  if (!isSameTreeSource(currentState.repoInfo, repoInfo)) return;
+
+  const remainingLoadingPaths = new Set(currentState.lazyLoadingPaths);
+  remainingLoadingPaths.delete(path);
+
+  if (result.ok) {
+    const nextLoadedPaths = new Set(currentState.lazyLoadedPaths);
+    nextLoadedPaths.add(path);
+    setState({
+      treeNodes: mergeTreeNodes(currentState.treeNodes, result.data),
+      lazyLoadedPaths: nextLoadedPaths,
+      lazyLoadingPaths: remainingLoadingPaths,
+      lazyLoadError: null,
+    });
+  } else {
+    setState({
+      lazyLoadingPaths: remainingLoadingPaths,
+      lazyLoadError: `Couldn't load “${path}”. ${result.error}`,
+    });
+  }
 }
 
 /**
@@ -420,12 +505,25 @@ async function loadTree(): Promise<void> {
   let { repoInfo } = getState();
   if (repoInfo === null) return;
 
-  setState({ loading: true, error: null, hasLoadedTree: false });
+  setState({
+    loading: true,
+    error: null,
+    hasLoadedTree: false,
+    treeLoadMode: 'full',
+    lazyLoadedPaths: new Set<string>(),
+    lazyLoadingPaths: new Set<string>(),
+    lazyLoadError: null,
+  });
 
   if (repoInfo.mode === 'pull-request') {
     const result = await fetchPullRequestFiles(repoInfo, _authToken);
     if (result.ok) {
-      setState({ treeNodes: result.data, loading: false, hasLoadedTree: true });
+      setState({
+        treeNodes: result.data,
+        loading: false,
+        hasLoadedTree: true,
+        treeLoadMode: 'full',
+      });
       queuePullRequestFileScroll(getState().activePath);
     } else {
       setState({ error: result.error, loading: false });
@@ -445,7 +543,24 @@ async function loadTree(): Promise<void> {
   const result = await fetchRepoTree(repoInfo, _authToken);
 
   if (result.ok) {
-    setState({ treeNodes: result.data, loading: false, hasLoadedTree: true });
+    if (result.data.truncated) {
+      const rootContents = await fetchDirectoryContents(repoInfo, '', _authToken);
+      if (rootContents.ok) {
+        setState({
+          treeNodes: rootContents.data,
+          loading: false,
+          hasLoadedTree: true,
+          treeLoadMode: 'lazy',
+          lazyLoadedPaths: new Set<string>(['']),
+          lazyLoadingPaths: new Set<string>(),
+          lazyLoadError: null,
+        });
+      } else {
+        setState({ error: rootContents.error, loading: false });
+      }
+    } else {
+      setState({ treeNodes: result.data.nodes, loading: false, hasLoadedTree: true });
+    }
   } else {
     setState({ error: result.error, loading: false });
   }
@@ -548,7 +663,15 @@ function handleNavigation(): void {
 
   if (!sameTreeSource) {
     // Different repository — clear stale tree, reset filter, and refetch
-    setState({ treeNodes: [], filterQuery: '', hasLoadedTree: false });
+    setState({
+      treeNodes: [],
+      filterQuery: '',
+      hasLoadedTree: false,
+      treeLoadMode: 'full',
+      lazyLoadedPaths: new Set<string>(),
+      lazyLoadingPaths: new Set<string>(),
+      lazyLoadError: null,
+    });
     const searchInput = document.querySelector<HTMLInputElement>(`#${SIDEBAR_ID} .${PREFIX}-search-input`);
     if (searchInput) searchInput.value = '';
     if (getState().sidebarOpen) void loadTree();

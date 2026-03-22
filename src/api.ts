@@ -41,6 +41,22 @@ interface GitHubPullRequestFile {
   previous_filename?: string;
 }
 
+/** Item shape returned by GET /repos/{owner}/{repo}/contents/{path} */
+interface GitHubContentItem {
+  type: 'file' | 'dir' | 'symlink' | 'submodule';
+  path: string;
+  sha: string;
+  url: string;
+  html_url?: string | null;
+  size?: number;
+}
+
+/** Successful repository tree load metadata. */
+export interface RepoTreeResult {
+  nodes: TreeNode[];
+  truncated: boolean;
+}
+
 /**
  * Discriminated union result type.
  * Avoids spreading try/catch across callers; always inspect `ok` first.
@@ -70,7 +86,7 @@ export type ApiResult<T> =
 export async function fetchRepoTree(
   repoInfo: RepoInfo,
   authToken?: string,
-): Promise<ApiResult<TreeNode[]>> {
+): Promise<ApiResult<RepoTreeResult>> {
   const { owner, repo, ref } = repoInfo;
 
   const url =
@@ -95,12 +111,6 @@ export async function fetchRepoTree(
 
     const json: GitHubTreeResponse = await response.json() as GitHubTreeResponse;
 
-    if (json.truncated) {
-      console.warn(
-        '[GitHubTreeNavigator] Tree response truncated — repository exceeds API limit.',
-      );
-    }
-
     const nodes: TreeNode[] = json.tree
       .filter((item): item is GitHubTreeItem & { type: 'blob' | 'tree' } =>
         item.type === 'blob' || item.type === 'tree',
@@ -111,6 +121,76 @@ export async function fetchRepoTree(
         sha: item.sha,
         url: item.url,
         ...(item.size !== undefined ? { size: item.size } : {}),
+      }));
+
+    return { ok: true, data: { nodes, truncated: json.truncated } };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Unknown network error';
+    return { ok: false, error: `Network error: ${message}` };
+  }
+}
+
+/**
+ * Fetches the immediate contents of a single directory via the repository
+ * contents API. Used as a lazy fallback when the recursive trees API is
+ * truncated for very large repositories.
+ */
+export async function fetchDirectoryContents(
+  repoInfo: RepoInfo,
+  directoryPath: string,
+  authToken?: string,
+): Promise<ApiResult<TreeNode[]>> {
+  if (repoInfo.mode !== 'repo') {
+    return { ok: false, error: 'Directory fallback is only available on repository pages.' };
+  }
+
+  const encodedPath = directoryPath
+    .split('/')
+    .filter(Boolean)
+    .map((segment) => encodeURIComponent(segment))
+    .join('/');
+
+  const url =
+    `https://api.github.com/repos/${encodeURIComponent(repoInfo.owner)}/${encodeURIComponent(repoInfo.repo)}` +
+    `/contents${encodedPath ? `/${encodedPath}` : ''}?ref=${encodeURIComponent(repoInfo.ref)}`;
+
+  const headers: HeadersInit = {
+    Accept: 'application/vnd.github.v3+json',
+  };
+  if (authToken) {
+    headers['Authorization'] = `Bearer ${authToken}`;
+  }
+
+  try {
+    const response = await fetch(url, { headers });
+
+    if (!response.ok) {
+      const githubMsg = await readErrorMessage(response);
+      return {
+        ok: false,
+        error: buildContentsError(response.status, repoInfo.owner, repoInfo.repo, directoryPath, githubMsg, response.headers),
+      };
+    }
+
+    const json = await response.json() as GitHubContentItem[] | GitHubContentItem;
+    if (!Array.isArray(json)) {
+      return {
+        ok: false,
+        error: `Directory "${directoryPath || '/'}" could not be loaded because GitHub did not return a directory listing.`,
+      };
+    }
+
+    const nodes: TreeNode[] = json
+      .filter((item): item is GitHubContentItem =>
+        item.type === 'dir' || item.type === 'file' || item.type === 'symlink' || item.type === 'submodule',
+      )
+      .map((item) => ({
+        path: item.path,
+        type: item.type === 'dir' ? 'tree' : 'blob',
+        sha: item.sha,
+        url: item.url,
+        ...(item.size !== undefined ? { size: item.size } : {}),
+        ...(typeof item.html_url === 'string' ? { htmlUrl: item.html_url } : {}),
       }));
 
     return { ok: true, data: nodes };
@@ -294,14 +374,18 @@ export function parseActiveFilePath(href: string): string | null {
   }
   if (url.hostname !== 'github.com') return null;
   const parts = url.pathname.split('/').filter(Boolean);
-  // [owner, repo, 'blob', branch, ...fileParts]
-  if (parts.length < 5 || parts[2] !== 'blob') return null;
-  if (parts[2] === 'blob') {
-    return parts.slice(4).join('/') || null;
-  }
   if (parts[2] === 'pull' && parts[4] === 'files' && url.hash.startsWith(`#${PULL_REQUEST_FILE_HASH_PREFIX}`)) {
     const encodedPath = url.hash.slice(PULL_REQUEST_FILE_HASH_PREFIX.length + 1);
-    return encodedPath ? decodeURIComponent(encodedPath) : null;
+    if (!encodedPath) return null;
+    try {
+      return decodeURIComponent(encodedPath);
+    } catch {
+      return null;
+    }
+  }
+  if (parts[2] === 'blob') {
+    if (parts.length < 5) return null;
+    return parts.slice(4).join('/') || null;
   }
   return null;
 }
@@ -375,6 +459,36 @@ function buildPullRequestFilesError(
       return `Pull request #${prNumber} for "${owner}/${repo}" was not found or is not accessible.`;
     default:
       return `GitHub API returned an unexpected status while loading PR files: ${status}.`;
+  }
+}
+
+/** Builds a user-facing error string for contents API failures. */
+function buildContentsError(
+  status: number,
+  owner: string,
+  repo: string,
+  directoryPath: string,
+  githubMsg = '',
+  respHeaders?: Headers,
+): string {
+  const label = directoryPath || '/';
+
+  switch (status) {
+    case 401:
+      return 'Authentication failed — token is invalid or expired. Update it in Settings.';
+    case 403: {
+      const isRateLimit =
+        respHeaders?.get('X-RateLimit-Remaining') === '0' ||
+        githubMsg.toLowerCase().includes('rate limit');
+      if (isRateLimit) {
+        return 'GitHub API rate limit exceeded. Add a token in Settings for 5 000 req/hr instead of 60.';
+      }
+      return `Access denied while loading directory "${label}" from "${owner}/${repo}".`;
+    }
+    case 404:
+      return `Directory "${label}" was not found in "${owner}/${repo}".`;
+    default:
+      return `GitHub API returned an unexpected status while loading directory "${label}": ${status}.`;
   }
 }
 

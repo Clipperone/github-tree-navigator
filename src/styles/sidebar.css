@@ -528,6 +528,31 @@ body.gtn-body--sidebar-pinned {
   margin: 0;
 }
 
+.gtn-notice,
+.gtn-inline-warning {
+  margin: 8px;
+  padding: 10px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.gtn-notice {
+  border: 1px solid var(--color-attention-muted, rgba(212, 167, 44, 0.4));
+  background: var(--color-attention-subtle, rgba(255, 248, 197, 0.6));
+  color: var(--color-fg-muted, #656d76);
+}
+
+.gtn-notice strong {
+  color: var(--color-fg-default, #1f2328);
+}
+
+.gtn-inline-warning {
+  border: 1px solid var(--color-danger-muted, rgba(255, 129, 130, 0.4));
+  background: var(--color-danger-subtle, #ffebe9);
+  color: var(--color-danger-fg, #cf222e);
+}
+
 /* ─── Search Bar ─────────────────────────────────────────────────────────── */
 
 .gtn-search-bar {
@@ -558,6 +583,21 @@ body.gtn-body--sidebar-pinned {
   /* hide the browser-native clear button (type=search) */
   -webkit-appearance: none;
   appearance: none;
+}
+
+.gtn-dir-btn--loading {
+  color: var(--color-fg-default, #1f2328);
+}
+
+.gtn-dir-loading-indicator {
+  width: 10px;
+  height: 10px;
+  margin-left: auto;
+  border: 2px solid var(--color-border-default, #d0d7de);
+  border-top-color: var(--color-accent-fg, #0969da);
+  border-radius: 50%;
+  animation: gtn-spin 0.6s linear infinite;
+  flex-shrink: 0;
 }
 
 .gtn-search-input::-webkit-search-cancel-button {

@@ -10,6 +10,9 @@
 /** Supported GitHub page modes the sidebar can represent. */
 export type RepoMode = 'repo' | 'pull-request';
 
+/** Loading strategy currently used for repository tree data. */
+export type TreeLoadMode = 'full' | 'lazy';
+
 /** Identifies a GitHub repository by owner, repository name, and git ref. */
 export interface RepoInfo {
   /** Repository owner (user or organization username) */
@@ -61,6 +64,14 @@ export interface AppState {
   error: string | null;
   /** True after a tree load has completed successfully, even if it returned zero nodes. */
   hasLoadedTree: boolean;
+  /** Tree loading strategy currently active for the repository. */
+  treeLoadMode: TreeLoadMode;
+  /** Directory paths already resolved in lazy mode. Root is stored as an empty string. */
+  lazyLoadedPaths: Set<string>;
+  /** Directory paths currently loading in lazy mode. */
+  lazyLoadingPaths: Set<string>;
+  /** Non-fatal warning shown inline while a lazy tree is already visible. */
+  lazyLoadError: string | null;
   /** Repo-relative path of the file currently viewed (from URL); null on non-blob pages */
   activePath: string | null;
   /** Current search/filter query typed by the user; empty string means no filter */
@@ -81,11 +92,20 @@ const initialState: Readonly<AppState> = {
   loading: false,
   error: null,
   hasLoadedTree: false,
+  treeLoadMode: 'full',
+  lazyLoadedPaths: new Set<string>(),
+  lazyLoadingPaths: new Set<string>(),
+  lazyLoadError: null,
   activePath: null,
   filterQuery: '',
 };
 
-let _state: AppState = { ...initialState, expandedPaths: new Set<string>() };
+let _state: AppState = {
+  ...initialState,
+  expandedPaths: new Set<string>(),
+  lazyLoadedPaths: new Set<string>(),
+  lazyLoadingPaths: new Set<string>(),
+};
 const _subscribers = new Set<StateSubscriber>();
 
 // ─── Public API ───────────────────────────────────────────────────────────────
@@ -156,6 +176,10 @@ export function resetState(): void {
     loading: false,
     error: null,
     hasLoadedTree: false,
+    treeLoadMode: 'full',
+    lazyLoadedPaths: new Set<string>(),
+    lazyLoadingPaths: new Set<string>(),
+    lazyLoadError: null,
     activePath: null,
     filterQuery: '',
     // pinned, sidebarOpen, expandedPaths intentionally preserved across navigations

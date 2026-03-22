@@ -10,7 +10,7 @@
  *   globals outside the subtree being constructed.
  */
 
-import type { RepoInfo, TreeNode } from './state';
+import type { RepoInfo, TreeLoadMode, TreeNode } from './state';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -598,6 +598,10 @@ export function renderTree(
   repoInfo: RepoInfo,
   activePath: string | null,
   filterQuery: string,
+  treeLoadMode: TreeLoadMode,
+  expandAllDisabledReason: string | null,
+  lazyLoadingPaths: Set<string>,
+  lazyLoadError: string | null,
   onToggleDir: (path: string) => void,
   onFileClick: (path: string, url: string) => void,
 ): void {
@@ -633,10 +637,39 @@ export function renderTree(
   renderTreeItems(
     ul, hierarchy, effectiveExpanded, repoInfo, activePath,
     highlightQuery,
+    lazyLoadingPaths,
     onToggleDir, onFileClick, 0,
   );
 
-  container.replaceChildren(ul);
+  const fragment = document.createDocumentFragment();
+
+  if (treeLoadMode === 'lazy') {
+    const notice = document.createElement('div');
+    notice.className = `${PREFIX}-notice`;
+    notice.innerHTML = /* html */ `
+      <strong>Large repository mode.</strong>
+      Directories load as you expand them, and search only covers the folders loaded so far.
+    `;
+    fragment.appendChild(notice);
+  } else if (expandAllDisabledReason !== null) {
+    const notice = document.createElement('div');
+    notice.className = `${PREFIX}-notice`;
+    notice.innerHTML = /* html */ `
+      <strong>Expand All disabled.</strong>
+      ${escapeHtml(expandAllDisabledReason)}
+    `;
+    fragment.appendChild(notice);
+  }
+
+  if (lazyLoadError !== null) {
+    const warning = document.createElement('div');
+    warning.className = `${PREFIX}-inline-warning`;
+    warning.textContent = lazyLoadError;
+    fragment.appendChild(warning);
+  }
+
+  fragment.appendChild(ul);
+  container.replaceChildren(fragment);
 }
 
 // ─── Tree Item Rendering ─────────────────────────────────────────────────────
@@ -663,6 +696,7 @@ function renderTreeItems(
   repoInfo: RepoInfo,
   activePath: string | null,
   filterQuery: string,
+  lazyLoadingPaths: Set<string>,
   onToggleDir: (path: string) => void,
   onFileClick: (path: string, url: string) => void,
   depth: number,
@@ -677,14 +711,16 @@ function renderTreeItems(
 
     if (item.type === 'tree') {
       const isExpanded = expandedPaths.has(item.fullPath);
+      const isLoading = lazyLoadingPaths.has(item.fullPath);
       li.setAttribute('aria-expanded', String(isExpanded));
 
       const btn = document.createElement('button');
-      btn.className = `${PREFIX}-dir-btn`;
+      btn.className = `${PREFIX}-dir-btn${isLoading ? ` ${PREFIX}-dir-btn--loading` : ''}`;
       btn.setAttribute(
         'aria-label',
         `${isExpanded ? 'Collapse' : 'Expand'} directory ${item.name}`,
       );
+      btn.setAttribute('aria-busy', String(isLoading));
       btn.innerHTML = /* html */ `
         <svg class="${PREFIX}-chevron${isExpanded ? ` ${PREFIX}-chevron--open` : ''}"
              width="12" height="12" viewBox="0 0 12 12"
@@ -693,6 +729,7 @@ function renderTreeItems(
         </svg>
         ${getIconSvg('dir')}
         <span class="${PREFIX}-item-name">${filterQuery ? highlightMatch(item.name, filterQuery) : escapeHtml(item.name)}</span>
+        ${isLoading ? `<span class="${PREFIX}-dir-loading-indicator" aria-hidden="true"></span>` : ''}
       `;
       btn.addEventListener('click', () => onToggleDir(item.fullPath));
       li.appendChild(btn);
@@ -703,7 +740,7 @@ function renderTreeItems(
         childUl.setAttribute('role', 'group');
         renderTreeItems(
           childUl, item.children, expandedPaths,
-          repoInfo, activePath, filterQuery, onToggleDir, onFileClick, depth + 1,
+          repoInfo, activePath, filterQuery, lazyLoadingPaths, onToggleDir, onFileClick, depth + 1,
         );
         li.appendChild(childUl);
       }
@@ -811,12 +848,13 @@ export function setTokenStatus(sidebar: HTMLElement, hasToken: boolean): void {
  * @param sidebar  - The sidebar `<aside>` element
  * @param enabled  - False when the dir count exceeds the safety limit
  */
-export function setExpandAllEnabled(sidebar: HTMLElement, enabled: boolean): void {
+export function setExpandAllEnabled(sidebar: HTMLElement, enabled: boolean, disabledReason?: string): void {
   const btn = sidebar.querySelector<HTMLButtonElement>(`.${PREFIX}-expand-btn`);
   if (!btn) return;
   btn.disabled = !enabled;
-  btn.title = enabled ? 'Expand all' : 'Too many directories — expand disabled';
-  btn.setAttribute('aria-label', enabled ? 'Expand all directories' : 'Expand all (disabled — too many directories)');
+  const reason = disabledReason ?? 'Expand all unavailable';
+  btn.title = enabled ? 'Expand all' : reason;
+  btn.setAttribute('aria-label', enabled ? 'Expand all directories' : reason);
 }
 
 // ─── Resize Handle ───────────────────────────────────────────────────────────
