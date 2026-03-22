@@ -48,4 +48,4 @@ exclude:
   - tsconfig.json
   - package.json
   - package-lock.json
-  - "*.md"          # README.md at root — not part of the site
+  # README.md is at the repo root, outside docs/ — Jekyll never sees it anyway.
