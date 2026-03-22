@@ -39,7 +39,7 @@ import {
   attachResizeHandle,
   PREFIX,
 } from './ui';
-import { getState, setState, subscribe, resetState, expandAllDirs, collapseAllDirs, type TreeNode } from './state';
+import { getState, setState, subscribe, resetState, expandAllDirs, collapseAllDirs, type TreeLoadMode, type TreeNode } from './state';
 
 // ─── Element ID Constants ────────────────────────────────────────────────────
 
@@ -53,6 +53,7 @@ const SESSION_KEY_WIDTH     = 'gtn-sidebar-width';
 const TREE_ITEM_SELECTOR = `.${PREFIX}-dir-btn, .${PREFIX}-file-link`;
 const SEARCH_INPUT_SELECTOR = `#${SIDEBAR_ID} .${PREFIX}-search-input`;
 const SETTINGS_PANEL_SELECTOR = `#${SIDEBAR_ID} .${PREFIX}-settings-panel`;
+const TREE_CACHE_MAX_ENTRIES = 12;
 
 /** Maximum number of directories before Expand All is disabled (DOM-freeze safeguard). */
 const EXPAND_ALL_DIR_LIMIT = 500;
@@ -63,6 +64,13 @@ const DEFAULT_SIDEBAR_WIDTH = 300;
 let _sidebarWidth = DEFAULT_SIDEBAR_WIDTH;
 let _focusedTreePath: string | null = null;
 let _pendingTreeFocusPath: string | null = null;
+const _treeCache = new Map<string, TreeCacheEntry>();
+
+interface TreeCacheEntry {
+  treeNodes: TreeNode[];
+  treeLoadMode: TreeLoadMode;
+  lazyLoadedPaths: string[];
+}
 
 // ─── SessionStorage helpers ──────────────────────────────────────────────────
 
@@ -90,6 +98,58 @@ function mergeTreeNodes(existing: readonly TreeNode[], incoming: readonly TreeNo
   }
 
   return Array.from(byPath.values());
+}
+
+function getTreeCacheKey(repoInfo: NonNullable<ReturnType<typeof getState>['repoInfo']>): string {
+  if (repoInfo.mode === 'pull-request') {
+    return `pr:${repoInfo.owner}/${repoInfo.repo}#${repoInfo.prNumber ?? 'unknown'}`;
+  }
+  return `repo:${repoInfo.owner}/${repoInfo.repo}@${repoInfo.ref}`;
+}
+
+function getCachedTree(repoInfo: NonNullable<ReturnType<typeof getState>['repoInfo']>): TreeCacheEntry | null {
+  const key = getTreeCacheKey(repoInfo);
+  const cached = _treeCache.get(key);
+  if (!cached) return null;
+
+  // Refresh recency for a simple LRU-style eviction policy.
+  _treeCache.delete(key);
+  _treeCache.set(key, cached);
+  return cached;
+}
+
+function setCachedTree(repoInfo: NonNullable<ReturnType<typeof getState>['repoInfo']>, entry: TreeCacheEntry): void {
+  const key = getTreeCacheKey(repoInfo);
+  _treeCache.delete(key);
+  _treeCache.set(key, {
+    treeNodes: entry.treeNodes.map((node) => ({ ...node })),
+    treeLoadMode: entry.treeLoadMode,
+    lazyLoadedPaths: [...entry.lazyLoadedPaths],
+  });
+
+  while (_treeCache.size > TREE_CACHE_MAX_ENTRIES) {
+    const oldestKey = _treeCache.keys().next().value;
+    if (oldestKey === undefined) break;
+    _treeCache.delete(oldestKey);
+  }
+}
+
+function clearTreeCache(): void {
+  _treeCache.clear();
+}
+
+function applyCachedTree(repoInfo: NonNullable<ReturnType<typeof getState>['repoInfo']>, cached: TreeCacheEntry): void {
+  setState({
+    repoInfo,
+    treeNodes: cached.treeNodes.map((node) => ({ ...node })),
+    loading: false,
+    error: null,
+    hasLoadedTree: true,
+    treeLoadMode: cached.treeLoadMode,
+    lazyLoadedPaths: new Set<string>(cached.lazyLoadedPaths),
+    lazyLoadingPaths: new Set<string>(),
+    lazyLoadError: null,
+  });
 }
 
 function isEditableTarget(target: EventTarget | null): boolean {
@@ -557,6 +617,7 @@ async function handleSaveToken(token: string): Promise<void> {
   try {
     await chrome.storage.local.set({ [STORAGE_KEY_TOKEN]: token });
     _authToken = token;
+    clearTreeCache();
     const sidebar = document.getElementById(SIDEBAR_ID);
     if (sidebar) setTokenStatus(sidebar, true);
     setState({
@@ -577,6 +638,7 @@ async function handleRemoveToken(): Promise<void> {
   try {
     await chrome.storage.local.remove(STORAGE_KEY_TOKEN);
     _authToken = undefined;
+    clearTreeCache();
     const sidebar = document.getElementById(SIDEBAR_ID);
     if (sidebar) setTokenStatus(sidebar, false);
     setState({
@@ -701,12 +763,20 @@ async function loadLazyDirectory(path: string): Promise<void> {
   if (result.ok) {
     const nextLoadedPaths = new Set(currentState.lazyLoadedPaths);
     nextLoadedPaths.add(path);
+    const mergedTreeNodes = mergeTreeNodes(currentState.treeNodes, result.data);
     setState({
-      treeNodes: mergeTreeNodes(currentState.treeNodes, result.data),
+      treeNodes: mergedTreeNodes,
       lazyLoadedPaths: nextLoadedPaths,
       lazyLoadingPaths: remainingLoadingPaths,
       lazyLoadError: null,
     });
+    if (currentState.repoInfo !== null) {
+      setCachedTree(currentState.repoInfo, {
+        treeNodes: mergedTreeNodes,
+        treeLoadMode: currentState.treeLoadMode,
+        lazyLoadedPaths: [...nextLoadedPaths],
+      });
+    }
   } else {
     setState({
       lazyLoadingPaths: remainingLoadingPaths,
@@ -776,8 +846,20 @@ async function loadTree(): Promise<void> {
   });
 
   if (repoInfo.mode === 'pull-request') {
+    const cachedPullRequestTree = getCachedTree(repoInfo);
+    if (cachedPullRequestTree !== null) {
+      applyCachedTree(repoInfo, cachedPullRequestTree);
+      queuePullRequestFileScroll(getState().activePath);
+      return;
+    }
+
     const result = await fetchPullRequestFiles(repoInfo, _authToken);
     if (result.ok) {
+      setCachedTree(repoInfo, {
+        treeNodes: result.data,
+        treeLoadMode: 'full',
+        lazyLoadedPaths: [],
+      });
       setState({
         treeNodes: result.data,
         loading: false,
@@ -800,12 +882,23 @@ async function loadTree(): Promise<void> {
     }
   }
 
+  const cachedRepoTree = getCachedTree(repoInfo);
+  if (cachedRepoTree !== null) {
+    applyCachedTree(repoInfo, cachedRepoTree);
+    return;
+  }
+
   const result = await fetchRepoTree(repoInfo, _authToken);
 
   if (result.ok) {
     if (result.data.truncated) {
       const rootContents = await fetchDirectoryContents(repoInfo, '', _authToken);
       if (rootContents.ok) {
+        setCachedTree(repoInfo, {
+          treeNodes: rootContents.data,
+          treeLoadMode: 'lazy',
+          lazyLoadedPaths: [''],
+        });
         setState({
           treeNodes: rootContents.data,
           loading: false,
@@ -819,6 +912,11 @@ async function loadTree(): Promise<void> {
         setState({ error: rootContents.error, loading: false });
       }
     } else {
+      setCachedTree(repoInfo, {
+        treeNodes: result.data.nodes,
+        treeLoadMode: 'full',
+        lazyLoadedPaths: [],
+      });
       setState({ treeNodes: result.data.nodes, loading: false, hasLoadedTree: true });
     }
   } else {

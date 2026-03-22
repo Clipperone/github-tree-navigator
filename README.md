@@ -11,6 +11,7 @@
 - **🔍 Live search / filter** — type to narrow the tree to matching files; matched substrings are highlighted and ancestor directories are auto-expanded automatically.
 - **🧾 Pull request changed-files mode** — on pull request pages the sidebar switches to a tree of the files changed in that PR and can jump directly into the `Files changed` view.
 - **📦 Large repository fallback** — when GitHub's recursive Trees API is truncated, the sidebar automatically switches to lazy directory loading instead of failing silently.
+- **⚡ In-memory tree cache** — revisiting the same repository, branch, or pull request during the same browser session reuses cached tree data instead of refetching it immediately.
 - **🔑 Personal Access Token** — store a GitHub PAT once via the settings panel; it is saved in `chrome.storage.local` (browser-local only, never sent anywhere except the GitHub API). Raises the rate limit from 60 to 5 000 requests/hr and enables private-repository access.
 - **↔ Resizable sidebar** — drag the right edge to any width between 180 px and 600 px; the chosen width is persisted across sessions via `chrome.storage.local`.
 - **📌 Pin mode** — pin the sidebar open so it stays visible while navigating; when unpinned it opens on hover and closes when the cursor leaves.
@@ -167,9 +168,10 @@ Use this before releasing changes:
 7. Save and remove a PAT; confirm token status updates and private-repo access works when applicable.
 8. Navigate within the same repo via GitHub SPA navigation and confirm the sidebar stays mounted and in sync.
 9. Open a pull request and confirm the sidebar shows only changed files, then click a file and verify it lands in the PR `Files changed` view.
-10. Press `Alt+\` and confirm the sidebar opens with focus in the search field.
-11. With focus inside the tree, use `ArrowUp`, `ArrowDown`, `ArrowLeft`, `ArrowRight`, `Enter`, and `Space` to navigate and expand/collapse without using the mouse.
-12. Press `/` to focus search and `Escape` to clear search, close settings, or close the sidebar as appropriate.
+10. Navigate away from a previously opened repo or branch, return to it in the same session, and confirm the tree reappears without a redundant full refetch.
+11. Press `Alt+\` and confirm the sidebar opens with focus in the search field.
+12. With focus inside the tree, use `ArrowUp`, `ArrowDown`, `ArrowLeft`, `ArrowRight`, `Enter`, and `Space` to navigate and expand/collapse without using the mouse.
+13. Press `/` to focus search and `Escape` to clear search, close settings, or close the sidebar as appropriate.
 
 ## Keyboard Shortcuts
 

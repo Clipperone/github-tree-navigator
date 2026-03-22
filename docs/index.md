@@ -30,6 +30,7 @@ no backend, no account required.
 | 🔍 **Live search / filter** | Type to narrow the tree to matching files; matched substrings are highlighted and ancestor directories auto-expand. |
 | 🧾 **Pull request mode** | On pull request pages the sidebar switches to a tree of changed files, making PR review faster and easier to navigate. |
 | 📦 **Large repo fallback** | If GitHub truncates the full recursive tree, the sidebar transparently switches to lazy directory loading instead of breaking. |
+| ⚡ **Session cache** | Reopening the same repository, branch, or PR in the same browser session reuses cached tree data for a faster sidebar. |
 | 🔑 **Private repo support** | Store a GitHub Personal Access Token once via the settings panel; raises the rate limit from 60 to 5 000 req/hr and unlocks private repositories. |
 | 🎨 **File-type icons** | Colour-coded icons for TypeScript, JavaScript, JSON, Markdown, YAML, images, test files, CSS, HTML, and more — inline SVG, no icon library needed. |
 | ⌨️ **Keyboard navigation** | Open the sidebar with `Alt+\`, jump to search with `/`, and move through the tree with the arrow keys. |
