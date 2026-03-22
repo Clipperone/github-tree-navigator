@@ -9,7 +9,7 @@ description: >-
 
 <!-- ── Install CTA ─────────────────────────────────────────────────────────── -->
 <p align="center" style="margin: 2rem 0 1.5rem">
-  <a href="https://chrome.google.com/webstore/detail/PLACEHOLDER_EXTENSION_ID"
+  <a href="https://chromewebstore.google.com/detail/github-tree-navigator/jgfkilmfnkcjmnjbkbflfclmagfdabpe"
      style="display:inline-block;padding:.75rem 2rem;background:#2ea44f;color:#fff;font-size:1.1rem;font-weight:700;border-radius:6px;text-decoration:none;margin:.35rem;box-shadow:0 1px 4px rgba(0,0,0,.25)">
     ⬇&thinsp; Install — It&rsquo;s Free
   </a>
