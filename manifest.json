@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "GitHub Tree Navigator",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Navigate any GitHub repository like a pro. Browse file trees without page reloads, making your workflow faster and smoother.",
   "permissions": [
     "storage"
@@ -33,17 +33,17 @@
     }
   ],
   "icons": {
-    "16":  "src/icons/icon16.png",
-    "32":  "src/icons/icon32.png",
-    "48":  "src/icons/icon48.png",
+    "16": "src/icons/icon16.png",
+    "32": "src/icons/icon32.png",
+    "48": "src/icons/icon48.png",
     "128": "src/icons/icon128.png"
   },
   "action": {
     "default_title": "GitHub Tree Navigator",
     "default_icon": {
-      "16":  "src/icons/icon16.png",
-      "32":  "src/icons/icon32.png",
-      "48":  "src/icons/icon48.png",
+      "16": "src/icons/icon16.png",
+      "32": "src/icons/icon32.png",
+      "48": "src/icons/icon48.png",
       "128": "src/icons/icon128.png"
     }
   }
