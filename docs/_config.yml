@@ -15,6 +15,10 @@ baseurl: "/github-tree-navigator"
 
 lang: "en"
 
+# Cayman uses this as the bold subtitle line in the header band.
+# Keep it short and punchy — the full description goes into <meta> tags via jekyll-seo-tag.
+tagline: "Navigate any GitHub repo like an IDE. Instant file tree, live search, private-repo support — no backend, no tracking."
+
 # ─── Theme ────────────────────────────────────────────────────────────────────
 # "jekyll-theme-cayman" is a first-party GitHub Pages supported theme.
 # No extra CSS or build step is required — GitHub Pages builds it automatically.

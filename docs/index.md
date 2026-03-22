@@ -1,6 +1,6 @@
 ---
 layout: default
-title: "GitHub Tree Navigator — Light Collapsible File Tree for GitHub"
+title: "GitHub Tree Navigator — Collapsible File Tree for GitHub"
 description: >-
   Navigate any GitHub repository like an IDE. Free, open-source Chrome
   extension — collapsible file tree, instant search, private-repo access,
@@ -11,11 +11,7 @@ description: >-
 <p align="center" style="margin: 2rem 0 1.5rem">
   <a href="https://chromewebstore.google.com/detail/github-tree-navigator/jgfkilmfnkcjmnjbkbflfclmagfdabpe"
      style="display:inline-block;padding:.75rem 2rem;background:#2ea44f;color:#fff;font-size:1.1rem;font-weight:700;border-radius:6px;text-decoration:none;margin:.35rem;box-shadow:0 1px 4px rgba(0,0,0,.25)">
-    ⬇&thinsp; Install — It&rsquo;s Free
-  </a>
-  <a href="https://github.com/Clipperone/github-tree-navigator"
-     style="display:inline-block;padding:.75rem 2rem;background:#24292e;color:#fff;font-size:1.05rem;font-weight:600;border-radius:6px;text-decoration:none;margin:.35rem;box-shadow:0 1px 4px rgba(0,0,0,.25)">
-    ★&thinsp; View Source
+    ⬇&thinsp; Install from Chrome Web Store — It&rsquo;s Free
   </a>
 </p>
 
