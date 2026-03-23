@@ -2,6 +2,8 @@
 
 > A **Manifest V3 Chrome extension** that injects a collapsible, resizable file-tree sidebar into every GitHub repository page — no page reloads, no backend, zero runtime dependencies.
 
+[Install from Chrome Web Store](https://chromewebstore.google.com/detail/github-tree-navigator/jgfkilmfnkcjmnjbkbflfclmagfdabpe) | [Download latest build from GitHub Releases](https://github.com/Clipperone/github-tree-navigator/releases/latest) | [Project website](https://clipperone.github.io/github-tree-navigator/)
+
 ---
 
 ## Features
@@ -40,7 +42,22 @@ All logic runs inside a content script injected directly into `github.com` pages
 
 ---
 
-## Installation (from source)
+## Installation
+
+### Prebuilt package
+
+If you prefer downloading a ready-built package from GitHub instead of building locally:
+
+1. Open [GitHub Releases](https://github.com/Clipperone/github-tree-navigator/releases/latest).
+2. Download the latest `github-tree-navigator-vX.Y.Z.zip` asset.
+3. Extract the archive to a local folder.
+4. Navigate to `chrome://extensions` in Chrome.
+5. Enable **Developer mode** (toggle, top-right).
+6. Click **Load unpacked** and select the extracted `github-tree-navigator` folder.
+
+> Each tagged release is built by GitHub Actions from the tagged commit and published as a downloadable `dist/` package.
+
+### Build from source
 
 ```bash
 git clone https://github.com/Clipperone/github-tree-navigator.git
