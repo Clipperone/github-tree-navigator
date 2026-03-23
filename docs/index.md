@@ -24,6 +24,14 @@ Current release: **v1.1.0**
 
 ---
 
+## Quick Links
+
+- [Usage Guide]({{ '/usage/' | relative_url }})
+- [Privacy Policy]({{ '/privacy/' | relative_url }})
+- [Source Code](https://github.com/Clipperone/github-tree-navigator)
+
+---
+
 ## Features
 
 | Feature | What it does |
@@ -78,6 +86,7 @@ communicates with **no server other than `api.github.com`**.
 ## Support & Links
 
 - [Chrome Web Store](https://chromewebstore.google.com/detail/github-tree-navigator/jgfkilmfnkcjmnjbkbflfclmagfdabpe)
+- [Usage Guide]({{ '/usage/' | relative_url }})
 - [Source Code](https://github.com/Clipperone/github-tree-navigator)
 - [Issue Tracker](https://github.com/Clipperone/github-tree-navigator/issues)
 - [Privacy Policy]({{ '/privacy/' | relative_url }})

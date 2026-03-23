@@ -10,6 +10,22 @@ Dependabot is enabled for this repository and checks `npm` dependencies plus Git
 
 ---
 
+## Quick Start
+
+Want to get productive in under a minute?
+
+1. Open any repository on `github.com`.
+2. Open the GitHub Tree Navigator sidebar from the left edge of the page.
+3. Type in the search box to filter files and folders instantly.
+4. Click a file to open it, or use the quick actions menu for copy path, permalink, raw, blame, and history.
+5. On pull request pages, use the same sidebar to browse changed files instead of jumping through GitHub's default list.
+6. Pin the sidebar if you want it to stay open while navigating, or resize it by dragging the right edge.
+7. Add a GitHub Personal Access Token in settings if you need private repository access or higher API limits.
+
+Full step-by-step guide: [Usage Guide](https://clipperone.github.io/github-tree-navigator/usage/)
+
+---
+
 ## Features
 
 - **🌲 Instant file tree** — fetches the full recursive repository tree in a single API call and renders it as a collapsible hierarchy inside an injected sidebar without page reloads.
