@@ -5,6 +5,7 @@ description: >-
   Learn how to use GitHub Tree Navigator: opening the sidebar, searching files,
   browsing pull requests, configuring private repository access, and using
   keyboard shortcuts.
+permalink: /usage/
 ---
 
 # GitHub Tree Navigator Usage Guide
