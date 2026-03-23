@@ -2,9 +2,11 @@
 
 > A **Manifest V3 Chrome extension** that injects a collapsible, resizable file-tree sidebar into every GitHub repository page — no page reloads, no backend, zero runtime dependencies.
 
-[![CI](https://github.com/Clipperone/github-tree-navigator/actions/workflows/ci.yml/badge.svg?branch=master)](https://github.com/Clipperone/github-tree-navigator/actions/workflows/ci.yml) [![Latest Release](https://img.shields.io/github/v/release/Clipperone/github-tree-navigator?display_name=tag)](https://github.com/Clipperone/github-tree-navigator/releases/latest)
+[![CI](https://github.com/Clipperone/github-tree-navigator/actions/workflows/ci.yml/badge.svg?branch=master)](https://github.com/Clipperone/github-tree-navigator/actions/workflows/ci.yml) [![Latest Release](https://img.shields.io/github/v/release/Clipperone/github-tree-navigator?display_name=tag)](https://github.com/Clipperone/github-tree-navigator/releases/latest) [![Dependabot Enabled](https://img.shields.io/badge/Dependabot-enabled-025E8C?logo=dependabot&logoColor=white)](https://github.com/Clipperone/github-tree-navigator/blob/master/.github/dependabot.yml)
 
 [Install from Chrome Web Store](https://chromewebstore.google.com/detail/github-tree-navigator/jgfkilmfnkcjmnjbkbflfclmagfdabpe) | [Download latest build from GitHub Releases](https://github.com/Clipperone/github-tree-navigator/releases/latest) | [Project website](https://clipperone.github.io/github-tree-navigator/)
+
+Dependabot is enabled for this repository and checks `npm` dependencies plus GitHub Actions updates weekly. Configuration lives in [`.github/dependabot.yml`](.github/dependabot.yml).
 
 ---
 
