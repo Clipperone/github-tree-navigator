@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "GitHub Tree Navigator",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "Navigate any GitHub repository like a pro. Browse file trees without page reloads, making your workflow faster and smoother.",
   "permissions": [
     "storage"
