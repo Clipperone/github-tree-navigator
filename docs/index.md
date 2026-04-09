@@ -20,7 +20,7 @@ Stop hunting for files by scrolling through GitHub's breadcrumbs.
 into any GitHub repository page the moment you open it — no configuration,
 no backend, no account required.
 
-Current release: **v1.1.0**
+Current release: **v1.2.0**
 
 ---
 
