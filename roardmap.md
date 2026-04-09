@@ -1,23 +1,14 @@
 # GitHub Tree Navigator Roadmap
 
-This roadmap now tracks only the work that remains after the `1.1.0` release.
-
-The shipped baseline already includes:
-
-- Pull request changed-files mode
-- Large-repository lazy fallback
-- Keyboard navigation
-- In-memory tree cache
-- File quick actions
-- Release polish across README, GitHub Pages, privacy, and metadata
+This roadmap tracks the work that remains after the `1.2.0` release.
 
 ---
 
-## Next Release Feature Work In Progress
+## Pending Feature Work
 
 The items below are the remaining roadmap slices planned for upcoming releases.
 
-### Step 6 - GitHub Enterprise Support
+### Step 1 - GitHub Enterprise Support
 
 **Goal**
 Support self-hosted GitHub Enterprise instances without regressing the public `github.com` experience.
@@ -52,7 +43,7 @@ Execute the changes end-to-end and validate with npm run type-check and npm run 
 
 ---
 
-### Step 7 - Submodule Support
+### Step 2 - Submodule Support
 
 **Goal**
 Render and open Git submodules correctly instead of treating them as ordinary files or folders.
@@ -81,7 +72,7 @@ Keep the implementation minimal, document edge cases, and validate with npm run 
 
 ---
 
-### Step 8 - Commit and Tag Views
+### Step 3 - Commit and Tag Views
 
 **Goal**
 Keep the sidebar coherent when the user browses historical snapshots instead of a live branch tip.
@@ -112,7 +103,7 @@ Update the documentation if needed, then validate with npm run type-check and np
 
 ---
 
-### Step 9 - Recent Files and Recent Repositories
+### Step 4 - Recent Files and Recent Repositories
 
 **Goal**
 Add a lightweight retention/productivity feature without making the sidebar noisy.
@@ -143,7 +134,7 @@ Update README if needed and validate with npm run type-check and npm run build.
 
 ---
 
-### Step 10 - Advanced Search and Result Ranking
+### Step 5 - Advanced Search and Result Ranking
 
 **Goal**
 Move search beyond the current live filter and improve precision on deep or large trees.
@@ -178,18 +169,18 @@ Implement the changes, update the documentation if needed, then validate with np
 
 ## Suggested Order
 
-1. Step 6 - GitHub Enterprise Support
-2. Step 7 - Submodule Support
-3. Step 8 - Commit and Tag Views
-4. Step 9 - Recent Files and Recent Repositories
-5. Step 10 - Advanced Search and Result Ranking
+1. Step 1 - GitHub Enterprise Support
+2. Step 2 - Submodule Support
+3. Step 3 - Commit and Tag Views
+4. Step 4 - Recent Files and Recent Repositories
+5. Step 5 - Advanced Search and Result Ranking
 
 ## Pragmatic Note
 
-If the goal is to maximize product value quickly after `1.1.0`, the highest-leverage sequence is:
+If the goal is to maximize product value quickly after `1.2.0`, the highest-leverage sequence is:
 
-1. Step 6 - GitHub Enterprise Support
-2. Step 8 - Commit and Tag Views
-3. Step 10 - Advanced Search and Result Ranking
+1. Step 1 - GitHub Enterprise Support
+2. Step 3 - Commit and Tag Views
+3. Step 5 - Advanced Search and Result Ranking
 
 That sequence expands addressable usage, improves navigation accuracy, and increases day-to-day utility without requiring a large UI redesign.

@@ -97,7 +97,7 @@ Then in Chrome:
 
 ## Release Status
 
-- Current release line: `1.1.x`
+- Current release line: `1.2.x`
 - Latest documented release notes: [CHANGELOG.md](CHANGELOG.md)
 
 ## Support
@@ -133,16 +133,14 @@ After `npm run build` (or each `dev` rebuild), go to `chrome://extensions` and c
 ### Expected build output
 
 ```
-vite v5.4.x building for production...
-✓ 7 modules transformed.
+vite v8.0.x building client environment for production...
+✓ 8 modules transformed.
 dist/manifest.json                          ~1.4 kB
-dist/src/styles/sidebar.css                 ~22 kB
+dist/src/styles/sidebar.css                 ~26 kB
 dist/assets/inject_start.ts-<hash>.js       ~0.4 kB
-dist/assets/content_script.ts-<hash>.js     ~29 kB
-✓ built in ~1s
+dist/assets/content_script.ts-<hash>.js     ~43 kB
+✓ built in ~300ms
 ```
-
-> The warning `The CJS build of Vite's Node API is deprecated` is **expected and harmless**.
 
 ---
 
@@ -188,10 +186,10 @@ content_script  ──►  state
 
 | Tool | Version | Purpose |
 |---|---|---|
-| TypeScript | 5.9 | Type-safe source (strict mode) |
-| Vite | 5.4 | Bundler |
+| TypeScript | 6.0 | Type-safe source (strict mode) |
+| Vite | 8.0 | Bundler |
 | @crxjs/vite-plugin | 2.4 | Chrome extension build pipeline |
-| @types/chrome | 0.0.260 | Chrome Extension API types |
+| @types/chrome | 0.1.39 | Chrome Extension API types |
 | GitHub Trees API | v3 | Repository file tree data |
 
 ---
