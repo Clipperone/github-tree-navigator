@@ -2,6 +2,20 @@
 
 All notable user-visible changes to GitHub Tree Navigator are documented here.
 
+## 1.2.1 - 2026-06-30
+
+Maintenance release — no changes to the extension's runtime behavior.
+
+### Added
+
+- Vitest unit-test suite covering the pure, security-sensitive functions (URL parsing, HTML escaping, file-action URL building, and the state reducers), wired into CI
+- Project files: `LICENSE` (MIT), `SECURITY.md`, `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`; `license` and `engines` fields in `package.json`
+
+### Changed
+
+- Dependency updates (Vite 8.1, `@types/chrome` 0.2, `@crxjs/vite-plugin` 2.7, PostCSS)
+- Refreshed `copilot-instructions.md` and `README`; added Security / Roadmap / License links to the GitHub Pages site
+
 ## 1.2.0 - 2026-04-09
 
 ### Added

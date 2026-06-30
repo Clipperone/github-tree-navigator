@@ -17,11 +17,12 @@ Trust these instructions fully. Only search the codebase when the information he
 | Node.js | v24 (CI uses Node 24) |
 | npm | 11.x |
 | TypeScript | ^6.0.2 |
-| Vite | ^8.0.5 |
-| @crxjs/vite-plugin | ^2.0.0-beta.23 |
-| @types/chrome | ^0.1.39 |
+| Vite | ^8.1.1 |
+| @crxjs/vite-plugin | ^2.7.0 |
+| @types/chrome | ^0.2.0 |
+| Vitest | ^4.1.9 |
 
-Source of truth for versions is `package.json`. There is **no testing framework and no linter/formatter config** in this repository. CI does exist (see below).
+Source of truth for versions is `package.json` (Dependabot bumps these weekly, so treat the numbers above as indicative). Unit tests run on **Vitest**; there is **no linter/formatter config** in this repository. CI does exist (see below).
 
 ---
 
@@ -51,12 +52,16 @@ scripts/
 dist/                         ← build output (gitignored); load this in Chrome
 manifest.json                 ← MV3 manifest (source of truth for CRXJS)
 vite.config.ts                ← Vite + CRXJS plugin config
+vitest.config.ts              ← Vitest config (Node env; no CRXJS plugin)
 tsconfig.json                 ← strict TypeScript; noEmit for type-checking
 package.json                  ← all scripts and devDependencies
+tests/                        ← Vitest unit tests (api / ui / state pure functions)
 CHANGELOG.md                  ← user-visible change history
 roadmap.md                    ← planned feature work after 1.2.0
 LICENSE                       ← MIT
 SECURITY.md                   ← vulnerability disclosure policy
+CONTRIBUTING.md               ← contributor guide
+CODE_OF_CONDUCT.md            ← Contributor Covenant v2.1
 ```
 
 **There are five `src/*.ts` files plus `styles/` and `icons/`.** No background service worker. No popup page. No options page. The settings panel is rendered inside the injected sidebar.
@@ -70,8 +75,10 @@ SECURITY.md                   ← vulnerability disclosure policy
 | `npm run build` | `vite build` | Production build → `dist/` |
 | `npm run dev` | `vite build --watch --mode development` | Watch mode with sourcemaps |
 | `npm run type-check` | `tsc --noEmit` | Type validation only (no emit) |
+| `npm test` | `vitest run` | Run the unit test suite once |
+| `npm run test:watch` | `vitest` | Unit tests in watch mode |
 
-There is **no `test` script** and **no lint script**.
+There is a `test` script (Vitest unit tests live in `tests/`); there is **no lint script**.
 
 The `npm version` lifecycle is wired up: `preversion` runs `type-check`, `version` runs `scripts/sync-version.js` to mirror the new version into `manifest.json` and stages it, `postversion` pushes the commit and tags. Use `npm version <patch|minor|major>` to cut a release; a matching `v*` git tag then triggers `release.yml`.
 
@@ -96,7 +103,7 @@ npm run build
 
 - Expected output (no errors, exit 0), approximate sizes:
   ```
-  vite v8.0.x building for production...
+  vite v8.1.x building for production...
   ✓ 8 modules transformed.
   dist/manifest.json                          ~1.4 kB
   dist/src/styles/sidebar.css                 ~26 kB
@@ -129,10 +136,11 @@ npm run dev
 ```bash
 npm install          # only needed once after clone
 npm run type-check   # must exit 0 with no output
+npm test             # all tests green
 npm run build        # must exit 0 with ✓
 ```
 
-This mirrors `.github/workflows/ci.yml`, which runs on every push to `master` and every pull request (checkout → setup Node 24 → `npm ci` → `npm run type-check` → `npm run build`). `codeql.yml` runs the same build under CodeQL analysis weekly and on PRs to `master`.
+This mirrors `.github/workflows/ci.yml`, which runs on every push to `master` and every pull request (checkout → setup Node 24 → `npm ci` → `npm run type-check` → `npm test` → `npm run build`). `codeql.yml` runs the same build under CodeQL analysis weekly and on PRs to `master`.
 
 ---
 

@@ -122,9 +122,11 @@ Then in Chrome:
 
 | Command | Purpose |
 |---|---|
-| `npm install` | Install the 67 devDependencies (first time / after clean) |
+| `npm install` | Install the devDependencies (first time / after clean) |
 | `npm run dev` | Watch mode — rebuilds `dist/` on every save, includes sourcemaps |
 | `npm run build` | Production build → `dist/` |
+| `npm test` | Run the Vitest unit suite once |
+| `npm run test:watch` | Run Vitest in watch mode |
 | `npm run type-check` | TypeScript validation only — exits 0 with no output when clean |
 
 ### Reload the extension after a build
@@ -134,7 +136,7 @@ After `npm run build` (or each `dev` rebuild), go to `chrome://extensions` and c
 ### Expected build output
 
 ```
-vite v8.0.x building client environment for production...
+vite v8.1.x building client environment for production...
 ✓ 8 modules transformed.
 dist/manifest.json                          ~1.4 kB
 dist/src/styles/sidebar.css                 ~26 kB
@@ -188,9 +190,10 @@ content_script  ──►  state
 | Tool | Version | Purpose |
 |---|---|---|
 | TypeScript | 6.0 | Type-safe source (strict mode) |
-| Vite | 8.0 | Bundler |
-| @crxjs/vite-plugin | 2.4 | Chrome extension build pipeline |
-| @types/chrome | 0.1.39 | Chrome Extension API types |
+| Vite | 8.1 | Bundler |
+| @crxjs/vite-plugin | 2.7 | Chrome extension build pipeline |
+| @types/chrome | 0.2 | Chrome Extension API types |
+| Vitest | 4.1 | Unit testing (pure functions) |
 | GitHub Trees API | v3 | Repository file tree data |
 
 ---
