@@ -2,6 +2,26 @@
 
 All notable user-visible changes to GitHub Tree Navigator are documented here.
 
+## 1.2.0 - 2026-04-09
+
+### Added
+
+- Continuous integration and release automation via GitHub Actions: `ci.yml` runs type-check and build on every push and pull request; `release.yml` builds, packages a ZIP, and publishes a GitHub Release on each `v*` tag
+- CodeQL security analysis, running weekly and on pull requests to `master`
+- Dependabot configuration for weekly npm and GitHub Actions dependency updates
+- GitHub Sponsors support
+- Step-by-step user guide on the GitHub Pages site ([docs/usage.md](docs/usage.md))
+
+### Changed
+
+- Upgraded the build toolchain to TypeScript 6, Vite 8, and `@types/chrome` 0.1.x; updated GitHub Actions `checkout` / `setup-node` to v6
+- README and GitHub Pages landing page refreshed to match the shipped feature set
+
+### Notes
+
+- The current public release line is `1.2.x`
+- Remaining roadmap work is tracked in [roadmap.md](roadmap.md)
+
 ## 1.1.0 - 2026-03-22
 
 ### Added
@@ -20,4 +40,4 @@ All notable user-visible changes to GitHub Tree Navigator are documented here.
 ### Notes
 
 - The current public release line is `1.1.x`
-- Remaining roadmap work is tracked in [roardmap.md](roardmap.md)
+- Remaining roadmap work is tracked in [roadmap.md](roadmap.md)

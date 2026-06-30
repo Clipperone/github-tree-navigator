@@ -12,16 +12,16 @@ Trust these instructions fully. Only search the codebase when the information he
 
 ## Tech stack & runtime versions
 
-| Tool | Resolved version |
+| Tool | Version |
 |---|---|
-| Node.js | v24.14.0 |
-| npm | 11.9.0 |
-| TypeScript | 5.9.3 |
-| Vite | 5.4.21 |
-| @crxjs/vite-plugin | 2.4.0 |
-| @types/chrome | 0.0.260 |
+| Node.js | v24 (CI uses Node 24) |
+| npm | 11.x |
+| TypeScript | ^6.0.2 |
+| Vite | ^8.0.5 |
+| @crxjs/vite-plugin | ^2.0.0-beta.23 |
+| @types/chrome | ^0.1.39 |
 
-No testing framework, no linter config, no CI pipeline exists in this repository.
+Source of truth for versions is `package.json`. There is **no testing framework and no linter/formatter config** in this repository. CI does exist (see below).
 
 ---
 
@@ -29,22 +29,37 @@ No testing framework, no linter config, no CI pipeline exists in this repository
 
 ```
 .github/
-└── copilot-instructions.md   ← this file
+├── copilot-instructions.md   ← this file
+├── dependabot.yml            ← weekly npm + github-actions updates
+├── FUNDING.yml               ← GitHub Sponsors
+└── workflows/
+    ├── ci.yml                ← type-check + build on push/PR
+    ├── codeql.yml            ← weekly CodeQL security scan
+    └── release.yml           ← build + zip + GitHub Release on v* tags
 src/
-├── content_script.ts         ← entry point; thin orchestrator only
+├── inject_start.ts           ← document_start; applies persisted sidebar width before first paint
+├── content_script.ts         ← document_idle entry point; thin orchestrator only
 ├── api.ts                    ← GitHub Trees API + URL parsing (pure functions)
 ├── state.ts                  ← observable store (no DOM, no network)
 ├── ui.ts                     ← DOM factory & renderers (no state mutations)
+├── icons/                    ← extension PNG icons (16/32/48/128)
 └── styles/
     └── sidebar.css           ← scoped .gtn-* selectors; uses GitHub CSS tokens
+docs/                         ← GitHub Pages (Jekyll): index.md, usage.md, privacy.md, _config.yml
+scripts/
+└── sync-version.js           ← syncs manifest.json version from package.json (npm version hook)
 dist/                         ← build output (gitignored); load this in Chrome
 manifest.json                 ← MV3 manifest (source of truth for CRXJS)
 vite.config.ts                ← Vite + CRXJS plugin config
 tsconfig.json                 ← strict TypeScript; noEmit for type-checking
 package.json                  ← all scripts and devDependencies
+CHANGELOG.md                  ← user-visible change history
+roadmap.md                    ← planned feature work after 1.2.0
+LICENSE                       ← MIT
+SECURITY.md                   ← vulnerability disclosure policy
 ```
 
-**No `src/` subdirectory other than `styles/`.** No background service worker. No popup page. No options page. All logic lives in the four `src/*.ts` files.
+**There are five `src/*.ts` files plus `styles/` and `icons/`.** No background service worker. No popup page. No options page. The settings panel is rendered inside the injected sidebar.
 
 ---
 
@@ -56,7 +71,9 @@ package.json                  ← all scripts and devDependencies
 | `npm run dev` | `vite build --watch --mode development` | Watch mode with sourcemaps |
 | `npm run type-check` | `tsc --noEmit` | Type validation only (no emit) |
 
-There is no `test` script. There is no lint script.
+There is **no `test` script** and **no lint script**.
+
+The `npm version` lifecycle is wired up: `preversion` runs `type-check`, `version` runs `scripts/sync-version.js` to mirror the new version into `manifest.json` and stages it, `postversion` pushes the commit and tags. Use `npm version <patch|minor|major>` to cut a release; a matching `v*` git tag then triggers `release.yml`.
 
 ---
 
@@ -68,10 +85,7 @@ There is no `test` script. There is no lint script.
 npm install
 ```
 
-- Installs 67 packages in ~45 s.
 - **Always run `npm install` before any build command** after cloning or deleting `node_modules`.
-- Expected output ends with: `added 67 packages, and audited 68 packages`
-- 4 known audit vulnerabilities (2 moderate, 2 high) in transitive deps — `npm audit fix --force` would break `@crxjs/vite-plugin`; **do not run it**.
 - On Windows, if `npm install` is interrupted (SIGINT), re-running it immediately may fail with `EPERM: operation not permitted, rmdir node_modules\@types`. Simply run `npm install` again — it succeeds on the second attempt.
 
 ### Production build
@@ -80,17 +94,17 @@ npm install
 npm run build
 ```
 
-- Expected output (no errors, exit 0):
+- Expected output (no errors, exit 0), approximate sizes:
   ```
-  vite v5.4.21 building for production...
-  ✓ 6 modules transformed.
-  dist/manifest.json                          0.76 kB
-  dist/src/styles/sidebar.css                 9.65 kB
-  dist/assets/content_script.ts-<hash>.js     9.05 kB
-  ✓ built in ~240ms
+  vite v8.0.x building for production...
+  ✓ 8 modules transformed.
+  dist/manifest.json                          ~1.4 kB
+  dist/src/styles/sidebar.css                 ~26 kB
+  dist/assets/inject_start.ts-<hash>.js       ~0.4 kB
+  dist/assets/content_script.ts-<hash>.js     ~43 kB
+  ✓ built in ~300ms
   ```
-- The warning `The CJS build of Vite's Node API is deprecated` is **expected and harmless**.
-- Output artifacts: `dist/manifest.json`, `dist/src/styles/sidebar.css`, `dist/assets/content_script.ts-<hash>.js`
+- Output artifacts: `dist/manifest.json`, `dist/src/styles/sidebar.css`, and the two hashed JS bundles under `dist/assets/`.
 
 ### Type-check (no build artifacts produced)
 
@@ -99,7 +113,7 @@ npm run type-check
 ```
 
 - Exits 0 with no output when clean. Any output means a type error.
-- Run this after every source change. It is the primary validation gate.
+- Run this after every source change. It is the primary local validation gate.
 
 ### Development watch mode
 
@@ -108,8 +122,6 @@ npm run dev
 ```
 
 - Rebuilds `dist/` on every file save; includes sourcemaps (`.map` files in `dist/assets/`).
-- Outputs `built in Xms.` on each rebuild.
-- On Windows, stderr shows `NativeCommandError` / CJS deprecation — **expected, not an error**.
 - Terminate with Ctrl+C.
 
 ### Full validation sequence (replicate CI manually)
@@ -120,33 +132,39 @@ npm run type-check   # must exit 0 with no output
 npm run build        # must exit 0 with ✓
 ```
 
+This mirrors `.github/workflows/ci.yml`, which runs on every push to `master` and every pull request (checkout → setup Node 24 → `npm ci` → `npm run type-check` → `npm run build`). `codeql.yml` runs the same build under CodeQL analysis weekly and on PRs to `master`.
+
 ---
 
 ## Architecture rules (enforce when making changes)
 
 1. **Module dependency graph has no cycles:**
-   `content_script → state, api, ui` | `ui → state (types only)` | `api → state (types only)` | `state → (none)`
+   `content_script → state, api, ui` | `ui → state (types only)` | `api → state (types only)` | `state → (none)` | `inject_start → (none)`
 
 2. **`state.ts`** — zero imports from sibling modules. Only exports pure functions: `getState`, `setState`, `subscribe`, `resetState`. No DOM access. No `fetch`.
 
-3. **`api.ts`** — pure functions; returns `ApiResult<T>` (discriminated union `{ok:true,data}|{ok:false,error}`). Never throws. No DOM access. No state mutations.
+3. **`api.ts`** — pure functions; returns `ApiResult<T>` (discriminated union `{ok:true,data}|{ok:false,error}`). Never throws. No DOM access. No state mutations. All hostnames are hardcoded to `api.github.com` / `github.com` / `raw.githubusercontent.com`; all path segments pass through `encodeURIComponent()`.
 
-4. **`ui.ts`** — no state imports. Receives everything needed as function arguments. All user-controlled strings (file names, paths from API) must be passed through `escapeHtml()` before `innerHTML` insertion.
+4. **`ui.ts`** — no state imports. Receives everything needed as function arguments. All user-controlled strings (file names, paths from API) must be passed through `escapeHtml()` (or `highlightMatch()`, which escapes internally) before `innerHTML` insertion. Static text uses `textContent`.
 
-5. **`content_script.ts`** — thin orchestration only. Contains no business logic of its own — connects the three modules. Handles GitHub SPA navigation via `turbo:load`, `turbo:render`, and `pjax:end` events.
+5. **`content_script.ts`** — thin orchestration only. Contains no business logic of its own — connects the three modules. Handles GitHub SPA navigation via `turbo:load`, `turbo:render`, and `pjax:end` events. Holds the PAT in memory and reads/writes it via `chrome.storage.local` only — never log it, never put it in the DOM, never send it anywhere except the GitHub API.
 
-6. **CSS scoping** — all selectors use the `gtn-` prefix. Never add bare element selectors. Use GitHub's `--color-*` CSS custom properties for colors (auto dark/light mode).
+6. **`inject_start.ts`** — runs at `document_start` (separate `content_scripts` entry in `manifest.json`). When the sidebar is pinned, it reads the persisted width from `sessionStorage` and injects a `<style>` element that sets the body margin before the first paint, eliminating the layout-shift flash on pinned reloads. The main content script removes that `<style>` once its own CSS takes over. Keep it tiny, synchronous, and dependency-free (no `chrome.storage` — that API is async and too late for `document_start`).
 
-7. **`vite.config.ts`** — uses `defineConfig(({ mode }) => ...)` form. Do **not** use `process.env` — `@types/node` is not installed and `process` is not in scope.
+7. **CSS scoping** — all selectors use the `gtn-` prefix. Never add bare element selectors. Use GitHub's `--color-*` CSS custom properties for colors (auto dark/light mode).
+
+8. **`vite.config.ts`** — uses `defineConfig(({ mode }) => ...)` form. Do **not** use `process.env` — `@types/node` is not installed and `process` is not in scope.
 
 ---
 
 ## Key configuration details
 
-- **`manifest.json`** is the source of truth consumed by CRXJS. The `content_scripts[0].js` entry must point to `src/content_script.ts` (CRXJS resolves TypeScript paths directly).
+- **`manifest.json`** is the source of truth consumed by CRXJS. It declares **two** `content_scripts` entries: `src/inject_start.ts` at `run_at: document_start`, and `src/content_script.ts` (+ `src/styles/sidebar.css`) at `run_at: document_idle`. CRXJS resolves the TypeScript paths directly.
+- **Permissions** are intentionally minimal: `storage` + `host_permissions: https://api.github.com/*`. The content script `matches` is `https://github.com/*/*`. Be conservative about widening these.
 - **`tsconfig.json`** has `"moduleResolution": "bundler"` — required for Vite. Do not change to `"node"`.
-- **`tsconfig.json`** does not include `"node"` in `"types"` — do not add `@types/node` or use `process` / Node globals in source files.
+- **`tsconfig.json`** has `"types": ["chrome"]` and does not include `"node"` — do not add `@types/node` or use `process` / Node globals in `src/`.
 - **`strict: true`**, `noUnusedLocals: true`, `noUnusedParameters: true`, `exactOptionalPropertyTypes: true` are all active.
+- Releasing: bump with `npm version`, which syncs `manifest.json` via `scripts/sync-version.js`. Keep `package.json` and `manifest.json` versions identical — `release.yml` verifies the tag matches `package.json`.
 
 ---
 
@@ -156,6 +174,6 @@ npm run build        # must exit 0 with ✓
 |---|---|
 | `Cannot find name 'process'` in `vite.config.ts` | Use `mode` param from `defineConfig(({ mode }) => ...)` instead |
 | `npm install` EPERM error on Windows | Run `npm install` a second time — succeeds on retry |
-| CJS deprecation warning in build output | Expected/harmless — ignore it |
 | Type error about optional properties | `exactOptionalPropertyTypes` is on — use `...(x !== undefined ? { key: x } : {})` spread pattern for conditional fields |
+| `package.json` / `manifest.json` version mismatch at release | Bump via `npm version`; never hand-edit one without the other |
 | Adding a new source file | No registration needed — Vite resolves imports automatically; only update `manifest.json` `content_scripts` if adding a new entry point |

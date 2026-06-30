@@ -4,18 +4,25 @@
   "version": "1.2.0",
   "type": "module",
   "description": "Chrome extension to navigate GitHub repository file trees without page reloads",
+  "license": "MIT",
   "scripts": {
     "dev": "vite build --watch --mode development",
     "build": "vite build",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "type-check": "tsc --noEmit",
     "preversion": "npm run type-check",
     "version": "node scripts/sync-version.js && git add manifest.json",
     "postversion": "git push && git push --tags"
   },
+  "engines": {
+    "node": ">=24"
+  },
   "devDependencies": {
     "@crxjs/vite-plugin": "^2.0.0-beta.23",
     "@types/chrome": "^0.1.39",
     "typescript": "^6.0.2",
-    "vite": "^8.0.5"
+    "vite": "^8.0.5",
+    "vitest": "^4.1.9"
   }
 }

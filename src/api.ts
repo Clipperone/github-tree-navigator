@@ -390,6 +390,41 @@ export function parseActiveFilePath(href: string): string | null {
   return null;
 }
 
+/** File quick-actions that resolve to an external GitHub URL. */
+export type RepoFileActionUrlId = 'open-raw' | 'open-blame' | 'open-history';
+
+/**
+ * Builds the destination URL for a file quick action (raw / blame / history).
+ * Pure: hostnames are hardcoded to GitHub domains and every path segment plus
+ * the ref are `encodeURIComponent`-escaped, so repository-controlled strings
+ * cannot redirect the request to an unintended host.
+ *
+ * @returns The target URL, or `null` when the context is not a plain repo view.
+ */
+export function buildRepoFileActionUrl(
+  actionId: RepoFileActionUrlId,
+  repoInfo: RepoInfo,
+  path: string,
+): string | null {
+  if (repoInfo.mode !== 'repo') return null;
+
+  const encodedSegments = path
+    .split('/')
+    .map((segment) => encodeURIComponent(segment))
+    .join('/');
+  const { owner, repo, ref } = repoInfo;
+  const encodedRef = encodeURIComponent(ref);
+
+  switch (actionId) {
+    case 'open-raw':
+      return `https://raw.githubusercontent.com/${owner}/${repo}/${encodedRef}/${encodedSegments}`;
+    case 'open-blame':
+      return `https://github.com/${owner}/${repo}/blame/${encodedRef}/${encodedSegments}`;
+    case 'open-history':
+      return `https://github.com/${owner}/${repo}/commits/${encodedRef}/${encodedSegments}`;
+  }
+}
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 /**
