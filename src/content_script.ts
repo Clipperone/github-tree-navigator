@@ -24,6 +24,7 @@ import {
   fetchPullRequestFiles,
   fetchDefaultBranch,
   parseActiveFilePath,
+  buildRepoFileActionUrl,
 } from './api';
 import {
   createToggleButton,
@@ -177,26 +178,6 @@ async function copyTextToClipboard(text: string): Promise<void> {
     textarea.select();
     document.execCommand('copy');
     textarea.remove();
-  }
-}
-
-function buildRepoFileActionUrl(actionId: FileActionId, repoInfo: NonNullable<ReturnType<typeof getState>['repoInfo']>, path: string): string | null {
-  if (repoInfo.mode !== 'repo') return null;
-
-  const encodedSegments = path
-    .split('/')
-    .map((segment) => encodeURIComponent(segment))
-    .join('/');
-
-  switch (actionId) {
-    case 'open-raw':
-      return `https://raw.githubusercontent.com/${repoInfo.owner}/${repoInfo.repo}/${encodeURIComponent(repoInfo.ref)}/${encodedSegments}`;
-    case 'open-blame':
-      return `https://github.com/${repoInfo.owner}/${repoInfo.repo}/blame/${encodeURIComponent(repoInfo.ref)}/${encodedSegments}`;
-    case 'open-history':
-      return `https://github.com/${repoInfo.owner}/${repoInfo.repo}/commits/${encodeURIComponent(repoInfo.ref)}/${encodedSegments}`;
-    default:
-      return null;
   }
 }
 

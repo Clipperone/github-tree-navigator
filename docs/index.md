@@ -90,7 +90,10 @@ communicates with **no server other than `api.github.com`**.
 - [Source Code](https://github.com/Clipperone/github-tree-navigator)
 - [Issue Tracker](https://github.com/Clipperone/github-tree-navigator/issues)
 - [Privacy Policy]({{ '/privacy/' | relative_url }})
+- [Security Policy](https://github.com/Clipperone/github-tree-navigator/blob/master/SECURITY.md)
 - [Changelog](https://github.com/Clipperone/github-tree-navigator/blob/master/CHANGELOG.md)
+- [Roadmap](https://github.com/Clipperone/github-tree-navigator/blob/master/roadmap.md)
+- [License (MIT)](https://github.com/Clipperone/github-tree-navigator/blob/master/LICENSE)
 
 ---
 

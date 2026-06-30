@@ -190,7 +190,7 @@ function filterNodes(nodes: TreeNode[], query: string): TreeNode[] {
  * @param query - Search term to highlight
  * @returns     - HTML-safe string ready for `innerHTML` insertion
  */
-function highlightMatch(text: string, query: string): string {
+export function highlightMatch(text: string, query: string): string {
   const idx = text.toLowerCase().indexOf(query.toLowerCase());
   if (idx === -1) return escapeHtml(text);
   const before = text.slice(0, idx);
@@ -999,7 +999,7 @@ export function attachResizeHandle(
  * @param str - Raw string that may contain HTML special characters
  * @returns   - HTML-safe escaped string
  */
-function escapeHtml(str: string): string {
+export function escapeHtml(str: string): string {
   return str
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
