@@ -63,7 +63,7 @@ jobs:
           zip -r "$ASSET_NAME" github-tree-navigator
 
       - name: Create GitHub release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ env.RELEASE_TAG }}
           generate_release_notes: true
